@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>MD Toolkit</title>
+  <script src="/boot.js"></script>
+  <link rel="stylesheet" href="/styles/themes.css">
+  <script type="module" src="/src/popup/main.ts"></script>
+</head>
+<body>
+  <button id="new-document" type="button" data-icon="file-plus"><span data-i18n="popup.new"></span></button>
+  <button id="open-tab" type="button" data-icon="external-link" hidden><span data-i18n="popup.open"></span></button>
+  <button id="sample" type="button" data-icon="file-text"><span data-i18n="popup.sample"></span></button>
+  <button id="options" type="button" data-icon="settings"><span data-i18n="popup.options"></span></button>
+
+  <label class="theme">
+    <span data-i18n="popup.theme"></span>
+    <select id="theme"></select>
+  </label>
+
+  <div id="file-access" class="warning" hidden>
+    <span data-i18n="popup.fileAccessOff"></span>
+    <button id="file-access-fix" type="button" data-i18n="popup.fileAccessFix"></button>
+  </div>
+</body>
+</html>

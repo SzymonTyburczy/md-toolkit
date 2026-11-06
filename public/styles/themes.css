@@ -1,0 +1,293 @@
+/*
+ * Colour palettes and per-theme defaults. Everything the document and the
+ * viewer interface draw comes from these custom properties, so a theme is
+ * nothing more than one block of variables.
+ */
+
+:root {
+  --font-stack-sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-stack-serif: "Source Serif 4 Variable", Georgia, Cambria, "Times New Roman", Times, serif;
+  --font-stack-mono: "JetBrains Mono Variable", ui-monospace, SFMono-Regular, "Cascadia Code", Consolas, Menlo, monospace;
+
+  --theme-font-body: var(--font-stack-sans);
+  --theme-font-heading: var(--font-stack-sans);
+  --theme-font-code: var(--font-stack-mono);
+  --theme-text-align: left;
+
+  --font-body: var(--theme-font-body);
+  --font-heading: var(--theme-font-heading);
+  --font-code: var(--theme-font-code);
+  --text-align: var(--theme-text-align);
+
+  --font-size: 16px;
+  --line-height: 1.65;
+  --paragraph-spacing: 1em;
+  --letter-spacing: 0em;
+  --content-width: 820px;
+  --side-margin: 32px;
+  --heading-scale: 1.22;
+  --code-size: 88%;
+  --hyphens: manual;
+}
+
+:root,
+:root[data-theme="light"] {
+  --bg: #ffffff;
+  --bg-soft: #f6f8fa;
+  --bg-raised: #ffffff;
+  --bg-hover: #eef1f4;
+  --fg: #1f2328;
+  --fg-muted: #59636e;
+  --border: #d1d9e0;
+  --accent: #0969da;
+  --on-accent: #ffffff;
+  --selection: #b6d7ff;
+  --mark: #fff3a3;
+  --shadow: 0 8px 28px rgb(31 35 40 / 14%);
+
+  --hl-comment: #59636e;
+  --hl-keyword: #cf222e;
+  --hl-string: #0a3069;
+  --hl-number: #0550ae;
+  --hl-function: #6639ba;
+  --hl-type: #953800;
+  --hl-attr: #116329;
+  --hl-variable: #953800;
+  --hl-addition: #116329;
+  --hl-deletion: #82071e;
+
+  --alert-note: #0969da;
+  --alert-tip: #1a7f37;
+  --alert-important: #8250df;
+  --alert-warning: #9a6700;
+  --alert-caution: #cf222e;
+}
+
+:root[data-theme="dark"] {
+  --bg: #0d1117;
+  --bg-soft: #161b22;
+  --bg-raised: #161b22;
+  --bg-hover: #21262d;
+  --fg: #e6edf3;
+  --fg-muted: #9198a1;
+  --border: #30363d;
+  --accent: #4493f8;
+  --on-accent: #0d1117;
+  --selection: #264f78;
+  --mark: #6b5a00;
+  --shadow: 0 8px 28px rgb(0 0 0 / 50%);
+
+  --hl-comment: #9198a1;
+  --hl-keyword: #ff7b72;
+  --hl-string: #a5d6ff;
+  --hl-number: #79c0ff;
+  --hl-function: #d2a8ff;
+  --hl-type: #ffa657;
+  --hl-attr: #7ee787;
+  --hl-variable: #ffa657;
+  --hl-addition: #7ee787;
+  --hl-deletion: #ffa198;
+
+  --alert-note: #4493f8;
+  --alert-tip: #3fb950;
+  --alert-important: #ab7df8;
+  --alert-warning: #d29922;
+  --alert-caution: #f85149;
+}
+
+:root[data-theme="nord"] {
+  --bg: #2e3440;
+  --bg-soft: #3b4252;
+  --bg-raised: #3b4252;
+  --bg-hover: #434c5e;
+  --fg: #d8dee9;
+  --fg-muted: #a3adc0;
+  --border: #4c566a;
+  --accent: #88c0d0;
+  --on-accent: #2e3440;
+  --selection: #4c566a;
+  --mark: #7a6a3a;
+  --shadow: 0 8px 28px rgb(0 0 0 / 40%);
+
+  --hl-comment: #9aa5b8;
+  --hl-keyword: #81a1c1;
+  --hl-string: #a3be8c;
+  --hl-number: #b48ead;
+  --hl-function: #88c0d0;
+  --hl-type: #8fbcbb;
+  --hl-attr: #8fbcbb;
+  --hl-variable: #d8dee9;
+  --hl-addition: #a3be8c;
+  --hl-deletion: #bf616a;
+
+  --alert-note: #81a1c1;
+  --alert-tip: #a3be8c;
+  --alert-important: #b48ead;
+  --alert-warning: #ebcb8b;
+  --alert-caution: #d08770;
+}
+
+:root[data-theme="dracula"] {
+  --bg: #282a36;
+  --bg-soft: #21222c;
+  --bg-raised: #343746;
+  --bg-hover: #44475a;
+  --fg: #f8f8f2;
+  --fg-muted: #b6bdd6;
+  --border: #44475a;
+  --accent: #bd93f9;
+  --on-accent: #282a36;
+  --selection: #44475a;
+  --mark: #6d6636;
+  --shadow: 0 8px 28px rgb(0 0 0 / 45%);
+
+  --hl-comment: #8f9bc4;
+  --hl-keyword: #ff79c6;
+  --hl-string: #f1fa8c;
+  --hl-number: #bd93f9;
+  --hl-function: #50fa7b;
+  --hl-type: #8be9fd;
+  --hl-attr: #50fa7b;
+  --hl-variable: #ffb86c;
+  --hl-addition: #50fa7b;
+  --hl-deletion: #ff5555;
+
+  --alert-note: #8be9fd;
+  --alert-tip: #50fa7b;
+  --alert-important: #bd93f9;
+  --alert-warning: #ffb86c;
+  --alert-caution: #ff5555;
+}
+
+:root[data-theme="tokyo-night"] {
+  --bg: #1a1b26;
+  --bg-soft: #16161e;
+  --bg-raised: #1f2335;
+  --bg-hover: #292e42;
+  --fg: #c0caf5;
+  --fg-muted: #9aa5ce;
+  --border: #292e42;
+  --accent: #7aa2f7;
+  --on-accent: #1a1b26;
+  --selection: #33467c;
+  --mark: #5b4e24;
+  --shadow: 0 8px 28px rgb(0 0 0 / 50%);
+
+  --hl-comment: #7f88b0;
+  --hl-keyword: #bb9af7;
+  --hl-string: #9ece6a;
+  --hl-number: #ff9e64;
+  --hl-function: #7aa2f7;
+  --hl-type: #2ac3de;
+  --hl-attr: #73daca;
+  --hl-variable: #e0af68;
+  --hl-addition: #9ece6a;
+  --hl-deletion: #f7768e;
+
+  --alert-note: #7aa2f7;
+  --alert-tip: #9ece6a;
+  --alert-important: #bb9af7;
+  --alert-warning: #e0af68;
+  --alert-caution: #f7768e;
+}
+
+:root[data-theme="gruvbox"] {
+  --bg: #282828;
+  --bg-soft: #32302f;
+  --bg-raised: #3c3836;
+  --bg-hover: #504945;
+  --fg: #ebdbb2;
+  --fg-muted: #bdae93;
+  --border: #504945;
+  --accent: #fabd2f;
+  --on-accent: #282828;
+  --selection: #504945;
+  --mark: #6f5a1e;
+  --shadow: 0 8px 28px rgb(0 0 0 / 45%);
+
+  --hl-comment: #a89984;
+  --hl-keyword: #fb4934;
+  --hl-string: #b8bb26;
+  --hl-number: #d3869b;
+  --hl-function: #8ec07c;
+  --hl-type: #fabd2f;
+  --hl-attr: #8ec07c;
+  --hl-variable: #83a598;
+  --hl-addition: #b8bb26;
+  --hl-deletion: #fb4934;
+
+  --alert-note: #83a598;
+  --alert-tip: #b8bb26;
+  --alert-important: #d3869b;
+  --alert-warning: #fabd2f;
+  --alert-caution: #fb4934;
+}
+
+:root[data-theme="one-dark"] {
+  --bg: #282c34;
+  --bg-soft: #21252b;
+  --bg-raised: #2f343d;
+  --bg-hover: #3a3f4b;
+  --fg: #abb2bf;
+  --fg-muted: #929aa8;
+  --border: #3e4451;
+  --accent: #61afef;
+  --on-accent: #282c34;
+  --selection: #3e4451;
+  --mark: #5e5530;
+  --shadow: 0 8px 28px rgb(0 0 0 / 45%);
+
+  --hl-comment: #8b93a3;
+  --hl-keyword: #c678dd;
+  --hl-string: #98c379;
+  --hl-number: #d19a66;
+  --hl-function: #61afef;
+  --hl-type: #e5c07b;
+  --hl-attr: #56b6c2;
+  --hl-variable: #e06c75;
+  --hl-addition: #98c379;
+  --hl-deletion: #e06c75;
+
+  --alert-note: #61afef;
+  --alert-tip: #98c379;
+  --alert-important: #c678dd;
+  --alert-warning: #e5c07b;
+  --alert-caution: #e06c75;
+}
+
+/* Reads like a printed paper: serif type, justified text, restrained colour. */
+:root[data-theme="academic"] {
+  --theme-font-body: var(--font-stack-serif);
+  --theme-font-heading: var(--font-stack-serif);
+  --theme-text-align: justify;
+
+  --bg: #fdfdfb;
+  --bg-soft: #f5f4ef;
+  --bg-raised: #ffffff;
+  --bg-hover: #efeee8;
+  --fg: #16161a;
+  --fg-muted: #5c5c66;
+  --border: #d4d3cb;
+  --accent: #7a1f1f;
+  --on-accent: #ffffff;
+  --selection: #e8d9c5;
+  --mark: #f5e7a8;
+  --shadow: 0 8px 28px rgb(22 22 26 / 12%);
+
+  --hl-comment: #6b6b75;
+  --hl-keyword: #7a1f1f;
+  --hl-string: #2f5d3a;
+  --hl-number: #1f4e79;
+  --hl-function: #4b2e83;
+  --hl-type: #7a4a12;
+  --hl-attr: #2f5d3a;
+  --hl-variable: #7a4a12;
+  --hl-addition: #2f5d3a;
+  --hl-deletion: #7a1f1f;
+
+  --alert-note: #1f4e79;
+  --alert-tip: #2f5d3a;
+  --alert-important: #4b2e83;
+  --alert-warning: #7a4a12;
+  --alert-caution: #7a1f1f;
+}

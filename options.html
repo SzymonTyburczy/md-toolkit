@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MD Toolkit</title>
+  <link rel="icon" href="/icons/icon32.png">
+  <script src="/boot.js"></script>
+  <link rel="stylesheet" href="/styles/themes.css">
+  <script type="module" src="/src/options/main.ts"></script>
+</head>
+<body>
+  <main>
+    <header class="page-header">
+      <img src="/icons/icon48.png" width="40" height="40" alt="">
+      <h1 data-i18n="options.title"></h1>
+    </header>
+
+    <section id="welcome" class="welcome" hidden>
+      <h2 data-i18n="options.welcomeTitle"></h2>
+      <p data-i18n="options.welcomeText"></p>
+      <button id="open-demo" class="button primary" type="button" data-i18n="options.tryIt"></button>
+    </section>
+
+    <section class="card">
+      <h2 data-i18n="options.section.access"></h2>
+
+      <div class="row">
+        <div>
+          <strong data-i18n="options.fileAccess"></strong>
+          <p id="file-access-status"></p>
+        </div>
+        <button id="file-access-fix" class="button" type="button" data-i18n="options.fileAccess.action" hidden></button>
+      </div>
+
+      <div class="row">
+        <div>
+          <strong data-i18n="options.defaultHosts"></strong>
+          <p data-i18n="options.defaultHosts.text"></p>
+        </div>
+      </div>
+
+      <label class="row">
+        <div>
+          <strong data-i18n="options.allSites"></strong>
+          <p data-i18n="options.allSites.text"></p>
+        </div>
+        <input id="all-sites" type="checkbox" role="switch">
+      </label>
+    </section>
+
+    <section class="card">
+      <h2 data-i18n="options.section.general"></h2>
+      <label class="row">
+        <strong data-i18n="options.language"></strong>
+        <select id="language">
+          <option value="auto" data-i18n="options.language.auto"></option>
+          <option value="en">English</option>
+          <option value="pl">Polski</option>
+        </select>
+      </label>
+      <label class="row">
+        <strong data-i18n="options.linksInNewTab"></strong>
+        <input id="links-new-tab" type="checkbox" role="switch">
+      </label>
+    </section>
+
+    <section class="card">
+      <h2 data-i18n="options.section.reload"></h2>
+      <label class="row">
+        <strong data-i18n="options.autoReload"></strong>
+        <input id="auto-reload" type="checkbox" role="switch">
+      </label>
+      <label class="row">
+        <strong data-i18n="options.reloadInterval"></strong>
+        <select id="reload-interval">
+          <option value="500">0.5 s</option>
+          <option value="1000">1 s</option>
+          <option value="1500">1.5 s</option>
+          <option value="2000">2 s</option>
+          <option value="5000">5 s</option>
+          <option value="10000">10 s</option>
+        </select>
+      </label>
+      <p class="note" data-i18n="options.reloadNote"></p>
+    </section>
+
+    <section class="card">
+      <h2 data-i18n="options.section.data"></h2>
+      <p class="note" data-i18n="options.privacy"></p>
+      <button id="reset" class="button" type="button" data-i18n="options.reset"></button>
+    </section>
+  </main>
+</body>
+</html>

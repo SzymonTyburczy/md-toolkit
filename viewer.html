@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en" data-mode="read">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MD Toolkit</title>
+  <link rel="icon" href="/icons/icon32.png">
+  <script src="/boot.js"></script>
+  <link rel="stylesheet" href="/styles/fonts.css">
+  <link rel="stylesheet" href="/styles/themes.css">
+  <link rel="stylesheet" href="/styles/document.css">
+  <script type="module" src="/src/viewer/main.ts"></script>
+</head>
+<body>
+  <div id="mdt-progress" aria-hidden="true"><div id="mdt-progress-bar"></div></div>
+
+  <header id="mdt-toolbar">
+    <button id="mdt-btn-toc" class="mdt-icon-btn" type="button" data-icon="panel-left" data-i18n-title="toolbar.toc"></button>
+    <div id="mdt-title">
+      <span id="mdt-doc-name"></span>
+      <span id="mdt-dirty" data-i18n-title="toolbar.unsaved" hidden></span>
+    </div>
+
+    <div class="mdt-segment" role="group" data-i18n-title="toolbar.modeLabel">
+      <button id="mdt-mode-read" type="button" aria-pressed="true" data-icon="book-open"><span data-i18n="toolbar.read"></span></button>
+      <button id="mdt-mode-edit" type="button" aria-pressed="false" data-icon="square-pen"><span data-i18n="toolbar.edit"></span></button>
+    </div>
+
+    <button id="mdt-btn-save" class="mdt-icon-btn" type="button" data-icon="save" data-i18n-title="toolbar.save" hidden></button>
+    <button id="mdt-btn-search" class="mdt-icon-btn" type="button" data-icon="search" data-i18n-title="toolbar.search"></button>
+    <button id="mdt-btn-focus" class="mdt-icon-btn" type="button" data-icon="focus" data-i18n-title="toolbar.focus"></button>
+
+    <div class="mdt-menu-wrap">
+      <button id="mdt-btn-export" class="mdt-icon-btn" type="button" data-icon="download" data-i18n-title="toolbar.export" aria-haspopup="menu" aria-expanded="false"></button>
+      <div id="mdt-export-menu" class="mdt-menu" role="menu" hidden>
+        <button type="button" role="menuitem" data-export="html" data-icon="file-code"><span data-i18n="export.html"></span></button>
+        <button type="button" role="menuitem" data-export="print" data-icon="printer"><span data-i18n="export.print"></span></button>
+        <button type="button" role="menuitem" data-export="markdown" data-icon="file-text"><span data-i18n="export.markdown"></span></button>
+        <hr>
+        <button type="button" role="menuitem" data-export="copy-rich" data-icon="clipboard-copy"><span data-i18n="export.copyRich"></span></button>
+        <button type="button" role="menuitem" data-export="copy-html" data-icon="code"><span data-i18n="export.copyHtml"></span></button>
+        <button type="button" role="menuitem" data-export="copy-markdown" data-icon="copy"><span data-i18n="export.copyMarkdown"></span></button>
+      </div>
+    </div>
+
+    <button id="mdt-btn-settings" class="mdt-icon-btn" type="button" data-icon="sliders" data-i18n-title="toolbar.appearance" aria-pressed="false"></button>
+    <button id="mdt-btn-help" class="mdt-icon-btn" type="button" data-icon="keyboard" data-i18n-title="toolbar.help"></button>
+  </header>
+
+  <div id="mdt-banner" role="alert" hidden>
+    <span data-i18n="banner.changed"></span>
+    <button id="mdt-banner-reload" class="mdt-button" type="button" data-i18n="banner.reload"></button>
+    <button id="mdt-banner-keep" class="mdt-button" type="button" data-i18n="banner.keep"></button>
+  </div>
+
+  <main id="mdt-main">
+    <nav id="mdt-toc">
+      <header class="mdt-panel-header">
+        <h2 data-i18n="toc.title"></h2>
+        <button id="mdt-toc-collapse" class="mdt-icon-btn" type="button" data-icon="chevrons-up-down" data-i18n-title="toc.collapseAll"></button>
+      </header>
+      <div id="mdt-toc-list"></div>
+    </nav>
+
+    <section id="mdt-editor-pane" hidden></section>
+    <div id="mdt-split-handle" role="separator" aria-orientation="vertical" data-i18n-title="editor.resize" hidden></div>
+
+    <section id="mdt-preview">
+      <article id="mdt-document" class="markdown-body"></article>
+    </section>
+
+    <aside id="mdt-settings" hidden></aside>
+  </main>
+
+  <footer id="mdt-status">
+    <span id="mdt-status-words"></span>
+    <span id="mdt-status-time"></span>
+    <span id="mdt-status-progress"></span>
+  </footer>
+
+  <div id="mdt-search" role="search" hidden>
+    <input id="mdt-search-input" type="search" data-i18n-placeholder="search.placeholder" autocomplete="off" spellcheck="false">
+    <span id="mdt-search-count"></span>
+    <button id="mdt-search-case" class="mdt-icon-btn mdt-text-btn" type="button" data-i18n-title="search.matchCase" aria-pressed="false">Aa</button>
+    <button id="mdt-search-prev" class="mdt-icon-btn" type="button" data-icon="chevron-up" data-i18n-title="search.previous"></button>
+    <button id="mdt-search-next" class="mdt-icon-btn" type="button" data-icon="chevron-down" data-i18n-title="search.next"></button>
+    <button id="mdt-search-close" class="mdt-icon-btn" type="button" data-icon="x" data-i18n-title="search.close"></button>
+  </div>
+
+  <button id="mdt-focus-exit" class="mdt-icon-btn" type="button" data-icon="x" data-i18n-title="focus.exit"></button>
+
+  <dialog id="mdt-help">
+    <h2 data-i18n="help.title"></h2>
+    <dl>
+      <dt><kbd>T</kbd></dt><dd data-i18n="help.toc"></dd>
+      <dt><kbd>E</kbd></dt><dd data-i18n="help.edit"></dd>
+      <dt><kbd>/</kbd></dt><dd data-i18n="help.search"></dd>
+      <dt><kbd>F</kbd></dt><dd data-i18n="help.focus"></dd>
+      <dt><kbd>S</kbd></dt><dd data-i18n="help.appearance"></dd>
+      <dt><kbd>Ctrl</kbd> <kbd>S</kbd></dt><dd data-i18n="help.save"></dd>
+      <dt><kbd>Ctrl</kbd> <kbd>B</kbd></dt><dd data-i18n="help.bold"></dd>
+      <dt><kbd>Ctrl</kbd> <kbd>I</kbd></dt><dd data-i18n="help.italic"></dd>
+      <dt><kbd>Ctrl</kbd> <kbd>K</kbd></dt><dd data-i18n="help.link"></dd>
+      <dt><kbd>?</kbd></dt><dd data-i18n="help.help"></dd>
+    </dl>
+    <button id="mdt-help-close" class="mdt-button" type="button" data-i18n="help.close"></button>
+  </dialog>
+
+  <div id="mdt-toast" role="status" hidden></div>
+</body>
+</html>
