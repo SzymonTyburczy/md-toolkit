@@ -17,6 +17,13 @@ A Markdown viewer and editor for Google Chrome, built around one idea: you decid
 - Any other website, after you allow it on the options page
 - Paste text into a new document, with an automatic draft
 
+**Work with whole folders**
+- Open a folder and browse every Markdown file in it from a file tree
+- Links between files and relative images just work
+- Search the names and contents of all files at once, then jump straight to the match
+- Edits save straight back to the file, and recent folders are one click away
+- Opening a single local file also lists the files around it, and you can move up a level
+
 **Control the look**
 - 8 themes plus system mode: Light, Dark, Nord, Dracula, Tokyo Night, Gruvbox, One Dark and Academic
 - Typography: text and heading fonts, size, line height, paragraph and letter spacing
@@ -49,6 +56,8 @@ The interface is available in English and Polish.
 | --- | --- |
 | ![Appearance settings panel](docs/screenshots/appearance-panel.png) | ![Mermaid diagrams in the Nord theme](docs/screenshots/theme-nord-diagrams.png) |
 
+![Browsing a folder in the Files tab](docs/screenshots/folder.png)
+
 ## Installation
 
 MD Toolkit is not on the Chrome Web Store yet, so it is installed as an unpacked extension.
@@ -62,7 +71,7 @@ MD Toolkit is not on the Chrome Web Store yet, so it is installed as an unpacked
 
 | Key | Action |
 | --- | --- |
-| <kbd>T</kbd> | Show or hide the table of contents |
+| <kbd>T</kbd> | Show or hide the side panel with files and contents |
 | <kbd>E</kbd> | Switch between reading and editing |
 | <kbd>/</kbd> | Search in the document |
 | <kbd>F</kbd> | Focus mode |
@@ -73,9 +82,17 @@ MD Toolkit is not on the Chrome Web Store yet, so it is installed as an unpacked
 
 Add `#mdt-raw` to a URL to see the original file instead of the viewer.
 
+### Folders
+
+Click the toolbar icon and choose **Open folder**, then pick a folder. The **Files** tab on the left shows its Markdown files and subfolders, with a search box for names and contents. Hidden folders, such as `.git`, and `node_modules` are skipped, and search covers up to 2,000 files.
+
+Chrome asks before the extension can read the folder, and again on the first save, before it can change files. After a browser restart it asks once more, unless you choose to allow access on every visit.
+
+When you open a single local file, the **Files** tab lists the folder it is in. The arrow button moves up one level.
+
 ### Saving files
 
-Chrome does not let an extension write to a file it merely opened. The first save in a session therefore asks you where to save, so pick the original file to overwrite it. Later saves go straight to that file.
+In an opened folder, edits save straight to the file. For a file opened on its own, Chrome does not let an extension write to it, so the first save in a session asks where to save: pick the original file to overwrite it. Later saves go straight to that file.
 
 ### Troubleshooting
 
@@ -113,11 +130,13 @@ Then load `dist` as described above.
 | `npm run test:e2e` | End-to-end tests in a real Chromium, after a build |
 | `npm run package` | Build and create a release zip in `release/` |
 
-The end-to-end tests need Chrome for Testing, because regular Chrome no longer loads extensions from the command line:
+The end-to-end tests use Chrome for Testing:
 
 ```bash
 npx puppeteer browsers install chrome
 ```
+
+On Windows, Smart App Control may block that download. The tests then fall back to an installed Chrome or Edge, and the `MDT_BROWSER` environment variable can point them at any Chromium browser.
 
 ### How it works
 
@@ -129,6 +148,7 @@ src/
   background/  Keeps the all-sites redirect in step with permissions
   markdown/    Rendering pipeline: markdown-it plugins and sanitizing
   viewer/      The viewer: preview, editor, panels, export
+    folders/   Opened folders and folder listings: tree, search, links
   options/     Options and welcome page
   popup/       Toolbar popup
   shared/      Settings, themes, translations, helpers

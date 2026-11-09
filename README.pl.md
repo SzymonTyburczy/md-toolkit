@@ -17,6 +17,13 @@ Przeglądarka i edytor Markdown dla Google Chrome zbudowane wokół jednej idei:
 - Dowolne inne strony po włączeniu w opcjach
 - Wklejanie tekstu do nowego dokumentu z automatycznym szkicem
 
+**Pracuj na całych folderach**
+- Otwórz folder i przeglądaj wszystkie jego pliki Markdown w drzewie plików
+- Linki między plikami i względne obrazki po prostu działają
+- Przeszukuj nazwy i treść wszystkich plików naraz, a potem przejdź prosto do trafienia
+- Zmiany zapisują się prosto do pliku, a ostatnie foldery są o jedno kliknięcie
+- Po otwarciu pojedynczego pliku lokalnego widać też pliki wokół niego i można przejść poziom wyżej
+
 **Decyduj o wyglądzie**
 - 8 motywów i tryb systemowy: Jasny, Ciemny, Nord, Dracula, Tokyo Night, Gruvbox, One Dark i Akademicki
 - Typografia: kroje tekstu i nagłówków, rozmiar, interlinia, odstępy między akapitami i literami
@@ -49,6 +56,8 @@ Interfejs jest dostępny po polsku i angielsku.
 | --- | --- |
 | ![Panel ustawień wyglądu](docs/screenshots/appearance-panel.png) | ![Diagramy Mermaid w motywie Nord](docs/screenshots/theme-nord-diagrams.png) |
 
+![Przeglądanie folderu w zakładce Pliki](docs/screenshots/folder.png)
+
 ## Instalacja
 
 MD Toolkit nie jest jeszcze w Chrome Web Store, więc instaluje się go jako rozszerzenie rozpakowane.
@@ -62,7 +71,7 @@ MD Toolkit nie jest jeszcze w Chrome Web Store, więc instaluje się go jako roz
 
 | Klawisz | Działanie |
 | --- | --- |
-| <kbd>T</kbd> | Pokaż lub ukryj spis treści |
+| <kbd>T</kbd> | Pokaż lub ukryj panel boczny z plikami i spisem treści |
 | <kbd>E</kbd> | Przełącz czytanie i edycję |
 | <kbd>/</kbd> | Szukaj w dokumencie |
 | <kbd>F</kbd> | Tryb skupienia |
@@ -73,9 +82,17 @@ MD Toolkit nie jest jeszcze w Chrome Web Store, więc instaluje się go jako roz
 
 Dopisz `#mdt-raw` do adresu, aby zobaczyć oryginalny plik zamiast podglądu.
 
+### Foldery
+
+Kliknij ikonę wtyczki, wybierz **Otwórz folder** i wskaż folder. Zakładka **Pliki** po lewej pokazuje jego pliki Markdown i podfoldery, a pole wyszukiwania przeszukuje nazwy i treść. Ukryte foldery, takie jak `.git`, oraz `node_modules` są pomijane. Wyszukiwanie obejmuje do 2000 plików.
+
+Chrome pyta o zgodę, zanim wtyczka odczyta folder, i jeszcze raz przy pierwszym zapisie, zanim zmieni pliki. Po ponownym uruchomieniu przeglądarki pyta znowu, chyba że zezwolisz na dostęp przy każdej wizycie.
+
+Po otwarciu pojedynczego pliku lokalnego zakładka **Pliki** pokazuje folder, w którym leży. Przycisk ze strzałką przechodzi poziom wyżej.
+
 ### Zapisywanie plików
 
-Chrome nie pozwala rozszerzeniu zapisywać do pliku, który tylko otworzyło. Dlatego przy pierwszym zapisie w sesji wtyczka pyta, gdzie zapisać. Wskaż oryginalny plik, aby go nadpisać. Kolejne zapisy trafiają już prosto do niego.
+W otwartym folderze zmiany zapisują się prosto do pliku. Do pliku otwartego osobno Chrome nie pozwala rozszerzeniu pisać, dlatego przy pierwszym zapisie w sesji wtyczka pyta, gdzie zapisać. Wskaż oryginalny plik, aby go nadpisać. Kolejne zapisy trafiają już prosto do niego.
 
 ### Rozwiązywanie problemów
 
@@ -113,11 +130,13 @@ Następnie załaduj folder `dist` zgodnie z opisem powyżej.
 | `npm run test:e2e` | Testy end-to-end w prawdziwym Chromium, po buildzie |
 | `npm run package` | Build i spakowanie wydania do `release/` |
 
-Testy end-to-end wymagają Chrome for Testing, bo zwykły Chrome nie ładuje już rozszerzeń z linii poleceń:
+Testy end-to-end korzystają z Chrome for Testing:
 
 ```bash
 npx puppeteer browsers install chrome
 ```
+
+Na Windowsie Smart App Control może zablokować tę pobraną przeglądarkę. Testy przełączają się wtedy na zainstalowany Chrome lub Edge, a zmienna środowiskowa `MDT_BROWSER` pozwala wskazać dowolną przeglądarkę opartą na Chromium.
 
 Architekturę i strukturę katalogów opisuje [angielskie README](README.md#how-it-works).
 

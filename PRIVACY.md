@@ -8,8 +8,16 @@ MD Toolkit has no servers, accounts, analytics or advertising. Your documents ne
 | --- | --- | --- |
 | Appearance and general settings | `chrome.storage.sync` | Keeps your preferences. If Chrome Sync is on, Chrome carries them to your other devices. |
 | The draft in **New document** | `chrome.storage.local` | Prevents losing pasted text. It stays on this device. |
+| Folders you open, up to the last 10 | IndexedDB, on this device | Lets you reopen a folder from the recent list. Only a reference to the folder is kept, never copies of your files. **Remove from this list** forgets one. |
+| Which folders are expanded in the file tree | Session storage | Keeps the tree as you left it while you move between files. It is cleared when the tab closes. |
 
-You can erase both by removing the extension. **Restore all defaults** on the options page resets your settings.
+You can erase all of this by removing the extension. **Restore all defaults** on the options page resets your settings.
+
+## Folders
+
+Opening a folder uses Chrome's own folder picker, and Chrome asks you before MD Toolkit can read it. It asks again on the first save, before any file can be changed. MD Toolkit reads only the folder you chose and the folders inside it. Chrome lists your granted folders in its site settings, where you can revoke access.
+
+When you open a local file, MD Toolkit also lists the folder around it, using the file access you already allowed. That listing stays in the viewer.
 
 ## What is sent over the network
 

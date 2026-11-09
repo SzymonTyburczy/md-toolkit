@@ -12,6 +12,12 @@ import type { MarkdownEditor } from './editor';
 import { enhanceBlocks, renderDiagrams, renderMath } from './enhance';
 import { buildStandaloneHtml, copyHtmlSource, copyRichText, downloadFile } from './export';
 import { FocusMode } from './focus';
+import { ensureFolderAccess, renderFolderLanding } from './folders/landing';
+import { folderFileUrl, linkFolderDocument, loadFolderImages } from './folders/links';
+import { FilePanel } from './folders/panel';
+import { baseName, defaultDocument } from './folders/paths';
+import { HandleSource, ListingSource } from './folders/sources';
+import { getWorkspace, touchWorkspace } from './folders/store';
 import { blocksOf, patchChildren } from './patch';
 import { ScrollSync } from './scroll-sync';
 import { DocumentSearch } from './search';
@@ -40,9 +46,17 @@ const settingsAside = byId('mdt-settings');
 
 const viewerBase = chrome.runtime.getURL('viewer.html');
 const params = new URLSearchParams(location.search);
+/** A document reached by URL: a local file or a web page. */
 const source = params.get('src');
+/** A folder chosen with "Open folder", and the file in it. */
+const workspaceId = params.get('ws');
+let currentPath = params.get('path');
+/** The page for choosing a folder. */
+const showFolderPage = params.has('folder');
+/** Text to search for once the document opens, set by folder search results. */
+const findOnLoad = params.get('q');
 /** The scratchpad has no file behind it: text lives in extension storage instead. */
-const isScratchpad = source === null;
+const isScratchpad = source === null && workspaceId === null && !showFolderPage;
 
 let settings: Settings = DEFAULT_SETTINGS;
 let look: DocumentLook;
@@ -56,6 +70,9 @@ let editor: MarkdownEditor | undefined;
 let scrollSync: ScrollSync | undefined;
 let pendingDiskText: string | null = null;
 let watcher: SourceWatcher | undefined;
+let folder: HandleSource | null = null;
+/** False on pages with no document to edit, such as the folder chooser. */
+let documentOpen = false;
 
 const toc = new TableOfContents(byId('mdt-toc-list'), preview, article);
 const search = new DocumentSearch(article, preview);
@@ -69,7 +86,23 @@ const panel = new SettingsPanel(settingsAside, {
 const isDirty = (): boolean => !isScratchpad && text !== savedText;
 
 function fileName(): string {
-  return source ? fileNameOf(source) : 'untitled.md';
+  if (source) return fileNameOf(source);
+  if (currentPath) return baseName(currentPath);
+  return 'untitled.md';
+}
+
+function showDocumentName(): void {
+  const label = byId('mdt-doc-name');
+  if (isScratchpad) {
+    label.textContent = t('scratch.title');
+    label.title = '';
+  } else if (folder && currentPath) {
+    label.textContent = currentPath;
+    label.title = `${folder.name}/${currentPath}`;
+  } else {
+    label.textContent = fileName();
+    label.title = source ?? '';
+  }
 }
 
 /* ------------------------------ rendering ------------------------------ */
@@ -93,12 +126,14 @@ function renderDocument(): void {
   const rendered = renderer(text);
   const fragment = sanitizeToFragment(rendered.html, source);
   if (source) resolveRelativeUrls(fragment, source);
+  else if (folder && currentPath) linkFolderDocument(fragment, folder, currentPath);
 
   const showHint = isScratchpad && !text.trim();
   const blocks = showHint
     ? [h('p', { class: 'mdt-scratch-hint' }, t('scratch.hint'))]
     : blocksOf(fragment);
   enhanceBlocks(patchChildren(article, blocks));
+  if (folder) void loadFolderImages(article, folder);
 
   const severalChapters = rendered.headings.filter((heading) => heading.level === 1).length > 1;
   const numberFrom = severalChapters ? 1 : 2;
@@ -107,8 +142,7 @@ function renderDocument(): void {
 
   documentTitle = rendered.title ?? (isScratchpad ? t('scratch.title') : fileName());
   document.title = `${documentTitle} - MD Toolkit`;
-  byId('mdt-doc-name').textContent = isScratchpad ? t('scratch.title') : fileName();
-  byId('mdt-doc-name').title = source ?? '';
+  showDocumentName();
 
   search.refresh();
   focus.refresh();
@@ -235,6 +269,7 @@ const saveDraft = debounce((draft: string) => {
 }, 400);
 
 async function setEditing(editing: boolean): Promise<void> {
+  if (editing && !documentOpen) return;
   root.dataset.mode = editing ? 'split' : 'read';
   byId('mdt-mode-read').setAttribute('aria-pressed', String(!editing));
   byId('mdt-mode-edit').setAttribute('aria-pressed', String(editing));
@@ -263,7 +298,13 @@ function toggleEditing(): void {
 }
 
 async function save(): Promise<void> {
+  if (!documentOpen) return;
   try {
+    // A file from an opened folder saves in place, once writing is allowed.
+    if (folder && fileHandle && !(await folder.allowWriting())) {
+      showToast(t('folder.writeDenied'));
+      return;
+    }
     fileHandle ??= await window.showSaveFilePicker({
       suggestedName: fileName(),
       types: [{ description: 'Markdown', accept: { 'text/markdown': ['.md', '.markdown'] } }],
@@ -357,7 +398,7 @@ function initSplitHandle(): void {
 
 /* -------------------------------- export ------------------------------- */
 
-function baseName(): string {
+function exportName(): string {
   return fileName().replace(/\.[^.]+$/, '');
 }
 
@@ -381,7 +422,7 @@ const EXPORT_ACTIONS: Record<string, () => void | Promise<void>> = {
   html: async () => {
     try {
       const html = await buildStandaloneHtml({ article, title: documentTitle, language: currentLocale(), look });
-      downloadFile(`${baseName()}.html`, html, 'text/html');
+      downloadFile(`${exportName()}.html`, html, 'text/html');
     } catch {
       showToast(t('export.failed'));
     }
@@ -458,6 +499,15 @@ function onDocumentClick(event: MouseEvent): void {
   const anchor = target.closest('a');
   const href = anchor?.getAttribute('href');
   if (!anchor || !href) return;
+
+  // Links to non-Markdown files in an opened folder, such as a PDF next to the notes.
+  const folderFile = anchor.dataset.folderFile;
+  if (folderFile && folder) {
+    event.preventDefault();
+    void folderFileUrl(folder, folderFile).then((url) => url && window.open(url, '_blank', 'noopener'));
+    return;
+  }
+
   if (href.startsWith('#')) {
     followInPageLink(anchor, event);
     return;
@@ -580,8 +630,28 @@ async function openScratchpad(): Promise<void> {
   const stored = await chrome.storage.local.get(DRAFT_KEY);
   const draft = stored[DRAFT_KEY];
   text = typeof draft === 'string' ? draft : '';
+  documentOpen = true;
   renderDocument();
   await setEditing(true);
+}
+
+/** Shows a freshly loaded document and starts watching it for changes. */
+function showOpenedDocument(read: () => Promise<string>, local: boolean): void {
+  savedText = text;
+  documentOpen = true;
+  renderDocument();
+  if (location.hash) scrollToFragment(location.hash);
+  if (findOnLoad) search.open(findOnLoad);
+
+  watcher = new SourceWatcher({
+    read,
+    local,
+    interval: () => settings.reloadInterval,
+    enabled: () => settings.autoReload,
+    onChange: onFileChanged,
+  });
+  watcher.remember(text);
+  watcher.start();
 }
 
 async function openDocument(url: string): Promise<void> {
@@ -591,20 +661,128 @@ async function openDocument(url: string): Promise<void> {
     showLoadFailure(error instanceof LoadError ? error.failure : { kind: 'status', status: 0 });
     return;
   }
-  savedText = text;
-  renderDocument();
-  if (location.hash) scrollToFragment(location.hash);
+  const local = url.startsWith('file:');
+  showOpenedDocument(() => readSource(url), local);
+  if (local) showLocalFolder(url);
+}
 
-  if (url.startsWith('file:') || /^https?:/.test(url)) {
-    watcher = new SourceWatcher({
-      url,
-      interval: () => settings.reloadInterval,
-      enabled: () => settings.autoReload,
-      onChange: onFileChanged,
-    });
-    watcher.remember(text);
-    watcher.start();
+/* -------------------------------- folders ------------------------------ */
+
+type SidebarTab = 'files' | 'toc';
+const SIDEBAR_TAB_KEY = 'mdt-sidebar-tab';
+const LISTING_ROOT_KEY = 'mdt-listing-root';
+
+function showSidebarTab(tab: SidebarTab, remember = true): void {
+  byId('mdt-files').hidden = tab !== 'files';
+  byId('mdt-toc-list').hidden = tab !== 'toc';
+  byId('mdt-toc-collapse').hidden = tab !== 'toc';
+  byId('mdt-tab-files').setAttribute('aria-selected', String(tab === 'files'));
+  byId('mdt-tab-toc').setAttribute('aria-selected', String(tab === 'toc'));
+  if (!remember) return;
+  try {
+    localStorage.setItem(SIDEBAR_TAB_KEY, tab);
+  } catch {
+    // The tab simply is not remembered.
   }
+}
+
+/** Shows the Files tab next to Contents, opening whichever the reader used last. */
+function enableFilesTab(fallback: SidebarTab): void {
+  byId('mdt-sidebar-tabs').hidden = false;
+  byId('mdt-toc-heading').hidden = true;
+  let saved: string | null = null;
+  try {
+    saved = localStorage.getItem(SIDEBAR_TAB_KEY);
+  } catch {
+    // Use the fallback.
+  }
+  showSidebarTab(saved === 'files' || saved === 'toc' ? saved : fallback, false);
+}
+
+function openFolderPage(): void {
+  location.href = `${viewerBase}?folder`;
+}
+
+/**
+ * Lists the folder around a local file. The reader can move up a level, and
+ * that choice is kept while they move between files in the same tab.
+ */
+function showLocalFolder(fileUrl: string): void {
+  const ownFolder = new URL('./', fileUrl).href;
+  let rootUrl = ownFolder;
+  try {
+    const saved = sessionStorage.getItem(LISTING_ROOT_KEY);
+    if (saved && ownFolder.startsWith(saved)) rootUrl = saved;
+  } catch {
+    // Start from the file's own folder.
+  }
+
+  const build = (url: string) => {
+    const listing = new ListingSource(url, viewerBase);
+    const parent = listing.parentUrl;
+    new FilePanel(byId('mdt-files'), {
+      source: listing,
+      currentPath: listing.pathOf(fileUrl),
+      onOpenFolder: openFolderPage,
+      onUp: parent
+        ? () => {
+          try {
+            sessionStorage.setItem(LISTING_ROOT_KEY, parent);
+          } catch {
+            // Moving up still works for this page.
+          }
+          build(parent);
+        }
+        : undefined,
+    });
+  };
+
+  build(rootUrl);
+  enableFilesTab('toc');
+}
+
+async function openWorkspace(id: string): Promise<void> {
+  const record = await getWorkspace(id).catch(() => undefined);
+  if (!record) {
+    showError(t('folder.gone'), [actionButton('folder.choose', openFolderPage)]);
+    return;
+  }
+
+  await ensureFolderAccess(article, record);
+  void touchWorkspace(record);
+  const workspace = new HandleSource(record, viewerBase);
+  folder = workspace;
+
+  if (!currentPath) {
+    currentPath = defaultDocument(await workspace.list('').catch(() => []));
+    if (currentPath) history.replaceState(null, '', workspace.href(currentPath, { hash: location.hash }));
+  }
+
+  new FilePanel(byId('mdt-files'), { source: workspace, currentPath, onOpenFolder: openFolderPage });
+  enableFilesTab('files');
+
+  if (!currentPath) {
+    document.title = `${workspace.name} - MD Toolkit`;
+    byId('mdt-doc-name').textContent = workspace.name;
+    article.replaceChildren(h('p', { class: 'mdt-scratch-hint' }, t('folder.pickFile')));
+    return;
+  }
+
+  const path = currentPath;
+  try {
+    text = await workspace.read(path);
+    fileHandle = await workspace.fileHandle(path);
+  } catch {
+    showLoadFailure({ kind: 'missing' });
+    return;
+  }
+  showOpenedDocument(() => workspace.read(path), true);
+}
+
+async function showFolderChooser(): Promise<void> {
+  document.title = `${t('folder.title')} - MD Toolkit`;
+  byId('mdt-doc-name').textContent = t('folder.title');
+  await renderFolderLanding(article, viewerBase);
 }
 
 function bindToolbar(): void {
@@ -619,6 +797,8 @@ function bindToolbar(): void {
   byId('mdt-help-close').addEventListener('click', () => helpDialog.close());
   byId('mdt-focus-exit').addEventListener('click', () => focus.exit());
   byId('mdt-toc-collapse').addEventListener('click', () => toc.toggleAll());
+  byId('mdt-tab-files').addEventListener('click', () => showSidebarTab('files'));
+  byId('mdt-tab-toc').addEventListener('click', () => showSidebarTab('toc'));
 }
 
 async function main(): Promise<void> {
@@ -643,7 +823,11 @@ async function main(): Promise<void> {
     return;
   }
 
-  if (isScratchpad) {
+  if (showFolderPage) {
+    await showFolderChooser();
+  } else if (workspaceId !== null) {
+    await openWorkspace(workspaceId);
+  } else if (source === null) {
     await openScratchpad();
   } else if (isAllowedSource(source, location.origin)) {
     await openDocument(source);

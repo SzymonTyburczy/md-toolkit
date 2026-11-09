@@ -111,7 +111,31 @@ const server = createServer((request, response) => {
 await new Promise((done) => server.listen(0, '127.0.0.1', done));
 const webBase = `http://127.0.0.1:${server.address().port}`;
 
-const browser = await puppeteer.launch({
+/*
+ * Chrome for Testing is the default. Windows' Smart App Control can block that
+ * download, so installed, signed browsers are tried next. They load extensions
+ * over CDP too. MDT_BROWSER picks a browser explicitly.
+ */
+const INSTALLED_BROWSERS = process.platform === 'win32'
+  ? ['C:/Program Files/Google/Chrome/Application/chrome.exe', 'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe']
+  : [];
+
+async function launchBrowser(options) {
+  const candidates = process.env.MDT_BROWSER ? [process.env.MDT_BROWSER] : [undefined, ...INSTALLED_BROWSERS];
+  let lastError;
+  for (const executablePath of candidates) {
+    try {
+      const launched = await puppeteer.launch({ ...options, ...(executablePath ? { executablePath } : {}) });
+      if (executablePath) console.log(`  (using ${executablePath})`);
+      return launched;
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  throw lastError;
+}
+
+const browser = await launchBrowser({
   headless: true,
   pipe: true,
   enableExtensions: [dist],
@@ -751,6 +775,171 @@ await test('the options page and popup work', async () => {
   await popup.close();
 });
 
+/* -------------------------------- folders -------------------------------- */
+
+/*
+ * A real folder picker needs a person, so a folder in the browser's private
+ * file system (OPFS) stands in. It is a real directory handle with the same
+ * API, permissions included, so everything after the picker runs for real.
+ */
+async function makeFolder(page) {
+  await page.evaluate(async (pixel) => {
+    const root = await navigator.storage.getDirectory();
+    await root.removeEntry('notes', { recursive: true }).catch(() => {});
+    const notes = await root.getDirectoryHandle('notes', { create: true });
+    const write = async (directory, name, content) => {
+      const writable = await (await directory.getFileHandle(name, { create: true })).createWritable();
+      await writable.write(content);
+      await writable.close();
+    };
+    const docs = await notes.getDirectoryHandle('docs', { create: true });
+    const deep = await docs.getDirectoryHandle('deep', { create: true });
+    const packages = await notes.getDirectoryHandle('node_modules', { create: true });
+    await write(notes, 'README.md', '# Notes home\n\nStart with the [guide](docs/guide.md#usage).\n');
+    await write(notes, 'zz-last.md', '# Last\n');
+    await write(docs, 'guide.md', '# Guide\n\n![pixel](pixel.png)\n\n'.concat('filler\n\n'.repeat(60), '## Usage\n\nBack [home](../README.md).\n'));
+    await write(docs, 'pixel.png', Uint8Array.from(atob(pixel), (character) => character.charCodeAt(0)));
+    await write(deep, 'needle.md', '# Deep\n\nThe secret word is pineapple.\n');
+    await write(packages, 'skip.md', 'pineapple inside a package');
+    window.showDirectoryPicker = async () => notes;
+  }, PIXEL.toString('base64'));
+}
+
+async function readFolderFile(page, ...parts) {
+  return page.evaluate(async (segments) => {
+    let directory = await (await navigator.storage.getDirectory()).getDirectoryHandle('notes');
+    for (const part of segments.slice(0, -1)) directory = await directory.getDirectoryHandle(part);
+    return (await (await directory.getFileHandle(segments.at(-1))).getFile()).text();
+  }, parts);
+}
+
+const treeNames = (page) => page.$$eval('.mdt-files-tree > ul > li > .mdt-file-row span', (spans) => spans.map((span) => span.textContent));
+
+let folderPage;
+
+await test('opening a folder shows its README and the files in it', async () => {
+  folderPage = await open(`${extensionUrl('viewer.html')}?folder`);
+  await ready(folderPage);
+  await makeFolder(folderPage);
+  await Promise.all([folderPage.waitForNavigation({ waitUntil: 'load' }), folderPage.click('.mdt-landing .mdt-primary')]);
+  await ready(folderPage);
+  assert(folderPage.url().includes('path=README.md'), `url: ${folderPage.url()}`);
+  equal(await folderPage.$eval('#mdt-document h1', (heading) => heading.textContent), 'Notes home', 'README shown');
+  await until(async () => (await treeNames(folderPage)).length === 3, 'tree');
+  equal(JSON.stringify(await treeNames(folderPage)), JSON.stringify(['docs', 'README.md', 'zz-last.md']), 'tree without node_modules');
+  equal(await folderPage.$eval('#mdt-tab-files', (tab) => tab.getAttribute('aria-selected')), 'true', 'Files tab open');
+  await shot(folderPage, 'folder');
+});
+
+await test('links between files in a folder work, images included', async () => {
+  await Promise.all([
+    folderPage.waitForNavigation({ waitUntil: 'load' }),
+    folderPage.evaluate(() => [...document.querySelectorAll('#mdt-document a')].find((link) => link.textContent === 'guide').click()),
+  ]);
+  await ready(folderPage);
+  assert(folderPage.url().includes('path=docs%2Fguide.md') && folderPage.url().endsWith('#usage'), `url: ${folderPage.url()}`);
+  await until(() => folderPage.$eval('#mdt-document img', (image) => image.complete && image.naturalWidth > 0), 'image read from the folder');
+  const inView = await folderPage.$eval('#usage', (heading) => heading.getBoundingClientRect().top < innerHeight);
+  assert(inView, 'did not jump to #usage');
+  await until(() => folderPage.$eval('.mdt-file-current', (link) => link.title === 'docs/guide.md'), 'current file marked in the tree');
+  const home = await folderPage.evaluate(() => [...document.querySelectorAll('#mdt-document a')].find((link) => link.textContent === 'home').href);
+  assert(home.includes('path=README.md'), `home link: ${home}`);
+});
+
+await test('searching a folder finds text in any file and opens it highlighted', async () => {
+  await folderPage.type('.mdt-files-search', 'pineapple');
+  await until(() => folderPage.$$eval('.mdt-result', (results) => results.length === 1), 'one result, none from node_modules');
+  const result = await folderPage.$eval('.mdt-result', (element) => element.textContent);
+  assert(result.includes('needle.md') && result.includes('pineapple'), `result: ${result}`);
+  await Promise.all([folderPage.waitForNavigation({ waitUntil: 'load' }), folderPage.click('.mdt-result')]);
+  await ready(folderPage);
+  await until(() => folderPage.$eval('#mdt-search-count', (element) => element.textContent === '1/1'), 'match highlighted');
+});
+
+await test('edits in a folder save straight to the file', async () => {
+  await folderPage.keyboard.press('Escape');
+  await folderPage.evaluate(() => {
+    window.showSaveFilePicker = async () => {
+      window.__pickerUsed = true;
+      throw new DOMException('not expected', 'AbortError');
+    };
+  });
+  await folderPage.keyboard.press('e');
+  await until(() => folderPage.$('.cm-editor'), 'editor');
+  await folderPage.click('.cm-content');
+  await folderPage.keyboard.down('Control');
+  await folderPage.keyboard.press('End');
+  await folderPage.keyboard.up('Control');
+  await folderPage.keyboard.type('\nSaved from the viewer.\n');
+  await folderPage.keyboard.down('Control');
+  await folderPage.keyboard.press('s');
+  await folderPage.keyboard.up('Control');
+  await until(() => folderPage.$eval('#mdt-dirty', (element) => element.hidden), 'saved');
+  equal(await folderPage.evaluate(() => window.__pickerUsed ?? false), false, 'save dialog shown');
+  const onDisk = await readFolderFile(folderPage, 'docs', 'deep', 'needle.md');
+  assert(onDisk.includes('Saved from the viewer.'), `file: ${onDisk}`);
+});
+
+await test('changes made elsewhere show up in an opened folder', async () => {
+  await folderPage.evaluate(async () => {
+    const notes = await (await navigator.storage.getDirectory()).getDirectoryHandle('notes');
+    const file = await (await (await notes.getDirectoryHandle('docs')).getDirectoryHandle('deep')).getFileHandle('needle.md');
+    const writable = await file.createWritable();
+    await writable.write('# Changed outside\n');
+    await writable.close();
+  });
+  await until(() => folderPage.$eval('#mdt-document h1', (heading) => heading.textContent === 'Changed outside'), 'reload', 6000);
+  await folderPage.close();
+});
+
+await test('opened folders are remembered and can be forgotten', async () => {
+  const page = await open(`${extensionUrl('viewer.html')}?folder`);
+  await ready(page);
+  equal(JSON.stringify(await page.$$eval('.mdt-recent a', (links) => links.map((link) => link.textContent))), '["notes"]', 'recent folders');
+  await Promise.all([page.waitForNavigation({ waitUntil: 'load' }), page.click('.mdt-recent a')]);
+  await ready(page);
+  equal(await page.$eval('#mdt-document h1', (heading) => heading.textContent), 'Notes home', 'reopened');
+
+  await page.goto(`${extensionUrl('viewer.html')}?folder`, { waitUntil: 'load' });
+  await ready(page);
+  await page.click('.mdt-recent button');
+  await until(async () => (await page.$$('.mdt-recent li')).length === 0, 'forgotten');
+  await page.close();
+});
+
+await test('a folder that is no longer on the list explains itself', async () => {
+  const page = await open(`${extensionUrl('viewer.html')}?ws=missing`);
+  await ready(page);
+  const text = await page.$eval('.mdt-error', (element) => element.textContent);
+  assert(text.includes('not on the list'), text);
+  await page.close();
+});
+
+await test('a local file shows the files around it, and you can move between them', async () => {
+  const page = await openViewer(linked.url);
+  await page.click('#mdt-tab-files');
+  await until(() => page.$('.mdt-files-tree a.mdt-file-current[title="linked.md"]'), 'current file in the tree');
+  const names = await treeNames(page);
+  assert(names.includes('sub') && names.includes('sample.md'), `names: ${names}`);
+  assert(!names.includes('notes.txt'), 'non-Markdown file listed');
+
+  await page.evaluate(() => [...document.querySelectorAll('.mdt-folder-row')].find((row) => row.textContent === 'sub').click());
+  await until(() => page.$('.mdt-files-tree a[title="sub/other.md"]'), 'subfolder opened');
+  await Promise.all([page.waitForNavigation({ waitUntil: 'load' }), page.click('.mdt-files-tree a[title="sub/other.md"]')]);
+  await ready(page);
+  equal(await page.$eval('#mdt-doc-name', (element) => element.textContent), 'other.md', 'opened from the tree');
+  equal(await page.$eval('#mdt-tab-files', (tab) => tab.getAttribute('aria-selected')), 'true', 'Files tab remembered');
+
+  // Now listing sub/, so moving up should show the whole fixture folder again.
+  await until(() => page.$eval('.mdt-files-root', (element) => element.textContent === 'sub'), 'folder of the file');
+  await page.click('.mdt-files-bar button');
+  await until(() => page.$('.mdt-files-tree a.mdt-file-current[title="sub/other.md"]'), 'parent folder with the file still marked');
+
+  await page.type('.mdt-files-search', 'Arrived');
+  await until(() => page.$$eval('.mdt-result', (results) => results.some((result) => result.textContent.includes('other.md'))), 'search on disk');
+  await page.close();
+});
+
 await test('no page logged an error or a CSP violation', async () => {
   // DOMPurify parses hostile input in an inert document, and Chrome reports the
   // handlers it sees there. Nothing runs: the hostile test checks that directly.
@@ -778,12 +967,11 @@ manifest.host_permissions.push(...manifest.optional_host_permissions);
 delete manifest.optional_host_permissions;
 writeFileSync(manifestPath, JSON.stringify(manifest));
 
-// Loaded with a flag rather than over CDP, so the extension survives the reload
-// Chrome performs when file access is switched, the same as for a real user.
-const webBrowser = await puppeteer.launch({
+const webBrowser = await launchBrowser({
   headless: true,
-  ignoreDefaultArgs: ['--disable-extensions'],
-  args: ['--no-sandbox', '--lang=en-US', `--disable-extensions-except=${granted}`, `--load-extension=${granted}`],
+  pipe: true,
+  enableExtensions: [granted],
+  args: ['--no-sandbox', '--lang=en-US'],
 });
 
 async function webPage(path) {

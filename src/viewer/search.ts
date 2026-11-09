@@ -48,10 +48,12 @@ export class DocumentSearch {
     return !this.box.hidden;
   }
 
-  open(): void {
+  /** `query` comes from a folder search result that opened this document. */
+  open(query?: string): void {
     this.box.hidden = false;
     const selected = window.getSelection()?.toString().trim();
     if (selected && !selected.includes('\n')) this.input.value = selected;
+    if (query) this.input.value = query;
     this.input.focus();
     this.input.select();
     this.run(true);

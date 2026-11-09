@@ -45,6 +45,7 @@ async function main(): Promise<void> {
   translateDom();
 
   byId('new-document').addEventListener('click', () => openTab(viewerBase));
+  byId('open-folder').addEventListener('click', () => openTab(`${viewerBase}?folder`));
   byId('sample').addEventListener('click', () => openTab(viewerUrl(viewerBase, chrome.runtime.getURL('sample.md'))));
   byId('options').addEventListener('click', () => {
     void chrome.runtime.openOptionsPage();

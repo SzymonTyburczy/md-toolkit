@@ -33,7 +33,9 @@ export async function readSource(url: string): Promise<string> {
 const REMOTE_INTERVAL = 15_000;
 
 export interface WatcherOptions {
-  url: string;
+  read(): Promise<string>;
+  /** Local files are cheap to check often; web servers are not. */
+  local: boolean;
   interval(): number;
   enabled(): boolean;
   onChange(text: string): void;
@@ -47,8 +49,8 @@ export class SourceWatcher {
   private read: () => Promise<string>;
 
   constructor(private readonly options: WatcherOptions) {
-    this.isLocal = options.url.startsWith('file:');
-    this.read = () => readSource(options.url);
+    this.isLocal = options.local;
+    this.read = options.read;
   }
 
   /** Records text the viewer already knows about, including what it just saved. */

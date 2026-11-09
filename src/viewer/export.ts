@@ -52,7 +52,7 @@ function usedFontFaces(css: string, fontStacks: string): string {
 
 /** Local images cannot be reached from an exported file, so they are embedded as well. */
 async function embedLocalImages(root: HTMLElement): Promise<void> {
-  const images = root.querySelectorAll<HTMLImageElement>('img[src^="file:"], img[src^="chrome-extension:"]');
+  const images = root.querySelectorAll<HTMLImageElement>('img[src^="file:"], img[src^="chrome-extension:"], img[src^="blob:"]');
   await Promise.all([...images].map(async (image) => {
     try {
       image.src = await asDataUrl(image.src);

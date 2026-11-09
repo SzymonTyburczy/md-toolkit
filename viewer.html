@@ -56,9 +56,14 @@
   <main id="mdt-main">
     <nav id="mdt-toc">
       <header class="mdt-panel-header">
-        <h2 data-i18n="toc.title"></h2>
+        <div id="mdt-sidebar-tabs" class="mdt-tabs" role="tablist" hidden>
+          <button id="mdt-tab-files" type="button" role="tab" aria-selected="false" data-i18n="sidebar.files"></button>
+          <button id="mdt-tab-toc" type="button" role="tab" aria-selected="true" data-i18n="toc.title"></button>
+        </div>
+        <h2 id="mdt-toc-heading" data-i18n="toc.title"></h2>
         <button id="mdt-toc-collapse" class="mdt-icon-btn" type="button" data-icon="chevrons-up-down" data-i18n-title="toc.collapseAll"></button>
       </header>
+      <div id="mdt-files" hidden></div>
       <div id="mdt-toc-list"></div>
     </nav>
 
