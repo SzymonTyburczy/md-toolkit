@@ -1,5 +1,6 @@
 import type { MarkdownIt, StateBlock, StateInline } from 'markdown-it';
 import { escapeHtml } from '../highlight';
+import { sourceAttributes } from './structure';
 
 const SPACE = 0x20;
 const TAB = 0x09;
@@ -114,8 +115,6 @@ export function mathPlugin(md: MarkdownIt): void {
 
   md.renderer.rules.math_block = (tokens, index) => {
     const token = tokens[index]!;
-    const line = token.attrGet('data-line');
-    const lineAttribute = line === null ? '' : ` data-line="${line}"`;
-    return `<div class="mdt-math" data-display="true"${lineAttribute}>${escapeHtml(token.content)}</div>\n`;
+    return `<div class="mdt-math" data-display="true"${sourceAttributes(token)}>${escapeHtml(token.content)}</div>\n`;
   };
 }

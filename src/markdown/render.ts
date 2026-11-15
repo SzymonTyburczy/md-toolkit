@@ -33,11 +33,12 @@ export interface RenderedDocument {
 
 export type Renderer = (source: string) => RenderedDocument;
 
-function frontMatterHtml(frontMatter: FrontMatter, label: string): string {
+/** The front matter covers the first `lineCount` lines of the file, its --- markers included. */
+function frontMatterHtml(frontMatter: FrontMatter, label: string, lineCount: number): string {
   const lines = splitHighlightedLines(highlightCode(frontMatter.raw, 'yaml'))
     .map((html) => `<span class="mdt-code-line">${html}\n</span>`)
     .join('');
-  return `<details class="mdt-front-matter" data-line="0"><summary>${escapeHtml(label)}</summary><div class="mdt-code" data-lang="yaml"><pre><code class="hljs">${lines}</code></pre></div></details>\n`;
+  return `<details class="mdt-front-matter" data-line="0" data-line-end="${lineCount}"><summary>${escapeHtml(label)}</summary><div class="mdt-code" data-lang="yaml"><pre><code class="hljs">${lines}</code></pre></div></details>\n`;
 }
 
 export function createRenderer(options: RendererOptions): Renderer {
@@ -69,7 +70,7 @@ export function createRenderer(options: RendererOptions): Renderer {
     const firstTitle = env.headings.find((heading) => heading.level === 1)?.text ?? null;
 
     return {
-      html: (frontMatter ? frontMatterHtml(frontMatter, options.frontMatterLabel) : '') + html,
+      html: (frontMatter ? frontMatterHtml(frontMatter, options.frontMatterLabel, lineOffset) : '') + html,
       headings: env.headings,
       title: frontMatter?.title ?? firstTitle,
       frontMatter,

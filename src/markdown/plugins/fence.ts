@@ -1,5 +1,6 @@
 import type { MarkdownIt } from 'markdown-it';
 import { escapeHtml, highlightCode, splitHighlightedLines } from '../highlight';
+import { sourceAttributes } from './structure';
 
 /**
  * Renders code fences. Mermaid and math fences become placeholders that the
@@ -10,8 +11,7 @@ export function fencePlugin(md: MarkdownIt): void {
   md.renderer.rules.fence = (tokens, index) => {
     const token = tokens[index]!;
     const language = token.info.trim().split(/\s+/)[0]?.toLowerCase() ?? '';
-    const line = token.attrGet('data-line');
-    const lineAttribute = line === null ? '' : ` data-line="${line}"`;
+    const lineAttribute = sourceAttributes(token);
     const code = token.content.replace(/\n$/, '');
 
     // Sources stay in the element's text, not an attribute: the sanitizer removes

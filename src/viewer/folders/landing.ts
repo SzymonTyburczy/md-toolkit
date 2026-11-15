@@ -3,23 +3,26 @@ import { t } from '../../shared/i18n';
 import type { WorkspaceRecord } from './sources';
 import { listWorkspaces, rememberFolder, removeWorkspace } from './store';
 
-function workspaceUrl(viewerBase: string, id: string): string {
+export function workspaceUrl(viewerBase: string, id: string): string {
   return `${viewerBase}?ws=${encodeURIComponent(id)}`;
+}
+
+/** Shows Chrome's folder picker and opens the chosen folder. Must run from a click. */
+export async function chooseFolder(viewerBase: string): Promise<void> {
+  try {
+    const handle = await window.showDirectoryPicker({ id: 'md-toolkit', mode: 'read' });
+    const record = await rememberFolder(handle);
+    location.href = workspaceUrl(viewerBase, record.id);
+  } catch (error) {
+    // Closing the picker is a normal way to change your mind.
+    if (!(error instanceof DOMException && error.name === 'AbortError')) throw error;
+  }
 }
 
 /** The "Open folder" page: choose a folder, or go back to a recent one. */
 export async function renderFolderLanding(article: HTMLElement, viewerBase: string): Promise<void> {
   const choose = h('button', { class: 'mdt-button mdt-primary', type: 'button' }, icon('folder-open'), h('span', {}, t('folder.choose')));
-  choose.addEventListener('click', async () => {
-    try {
-      const handle = await window.showDirectoryPicker({ id: 'md-toolkit', mode: 'read' });
-      const record = await rememberFolder(handle);
-      location.href = workspaceUrl(viewerBase, record.id);
-    } catch (error) {
-      // Closing the picker is a normal way to change your mind.
-      if (!(error instanceof DOMException && error.name === 'AbortError')) throw error;
-    }
-  });
+  choose.addEventListener('click', () => void chooseFolder(viewerBase));
 
   const recent = await listWorkspaces();
   const list = h('ul', { class: 'mdt-recent' });

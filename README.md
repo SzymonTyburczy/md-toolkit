@@ -21,7 +21,8 @@ A Markdown viewer and editor for Google Chrome, built around one idea: you decid
 - Open a folder and browse every Markdown file in it from a file tree
 - Links between files and relative images just work
 - Search the names and contents of all files at once, then jump straight to the match
-- Edits save straight back to the file, and recent folders are one click away
+- Edits save straight back to the file
+- The menu on the folder name switches to a recent folder, jumps to a parent folder, or opens a new one
 - Opening a single local file also lists the files around it, and you can move up a level
 
 **Control the look**
@@ -40,7 +41,8 @@ A Markdown viewer and editor for Google Chrome, built around one idea: you decid
 
 **Tools**
 - Table of contents with section tracking and collapsible levels
-- Split editor with live preview, synced scrolling and saving to disk
+- Two ways to edit: click any block to change its Markdown right inside the rendered document, or use the editor beside the preview with synced scrolling
+- Saving to disk, and task boxes you can tick while editing
 - Auto-reload that keeps your scroll position and never overwrites unsaved edits
 - Search with match count, reading progress, word count and reading time
 - Focus mode that dims everything but the current block
@@ -56,7 +58,9 @@ The interface is available in English and Polish.
 | --- | --- |
 | ![Appearance settings panel](docs/screenshots/appearance-panel.png) | ![Mermaid diagrams in the Nord theme](docs/screenshots/theme-nord-diagrams.png) |
 
-![Browsing a folder in the Files tab](docs/screenshots/folder.png)
+| Browsing a folder | Editing a block in place |
+| --- | --- |
+| ![Browsing a folder in the Files tab](docs/screenshots/folder.png) | ![One paragraph open for editing inside the rendered document](docs/screenshots/live-editing.png) |
 
 ## Installation
 
@@ -72,7 +76,8 @@ MD Toolkit is not on the Chrome Web Store yet, so it is installed as an unpacked
 | Key | Action |
 | --- | --- |
 | <kbd>T</kbd> | Show or hide the side panel with files and contents |
-| <kbd>E</kbd> | Switch between reading and editing |
+| <kbd>L</kbd> | Edit in place: click any block to change it |
+| <kbd>E</kbd> | Editor beside the preview |
 | <kbd>/</kbd> | Search in the document |
 | <kbd>F</kbd> | Focus mode |
 | <kbd>S</kbd> | Show or hide appearance settings |
@@ -82,6 +87,14 @@ MD Toolkit is not on the Chrome Web Store yet, so it is installed as an unpacked
 
 Add `#mdt-raw` to a URL to see the original file instead of the viewer.
 
+### Editing
+
+The toolbar switches between three modes:
+
+- **Read** shows the document.
+- **Live** lets you edit inside the rendered document. Click a paragraph, list, table, formula or diagram and only that block turns into its Markdown, while everything around it stays rendered. <kbd>Esc</kbd> or a click elsewhere shows the result, and the arrow keys carry on into the block above or below. Click below the last block to add a new one, and tick task boxes directly. <kbd>Ctrl</kbd>+click still follows links.
+- **Split** puts a full editor beside the preview, with synced scrolling.
+
 ### Folders
 
 Click the toolbar icon and choose **Open folder**, then pick a folder. The **Files** tab on the left shows its Markdown files and subfolders, with a search box for names and contents. Hidden folders, such as `.git`, and `node_modules` are skipped, and search covers up to 2,000 files.
@@ -89,6 +102,8 @@ Click the toolbar icon and choose **Open folder**, then pick a folder. The **Fil
 Chrome asks before the extension can read the folder, and again on the first save, before it can change files. After a browser restart it asks once more, unless you choose to allow access on every visit.
 
 When you open a single local file, the **Files** tab lists the folder it is in. The arrow button moves up one level.
+
+Click the folder name above the tree to move elsewhere: to any parent folder, to a recently opened folder, or to a new one with **Choose folder…**.
 
 ### Saving files
 
@@ -149,6 +164,7 @@ src/
   markdown/    Rendering pipeline: markdown-it plugins and sanitizing
   viewer/      The viewer: preview, editor, panels, export
     folders/   Opened folders and folder listings: tree, search, links
+    inline/    Editing a single block in place
   options/     Options and welcome page
   popup/       Toolbar popup
   shared/      Settings, themes, translations, helpers

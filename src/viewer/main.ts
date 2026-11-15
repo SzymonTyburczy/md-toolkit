@@ -18,6 +18,7 @@ import { FilePanel } from './folders/panel';
 import { baseName, defaultDocument } from './folders/paths';
 import { HandleSource, ListingSource } from './folders/sources';
 import { getWorkspace, touchWorkspace } from './folders/store';
+import { LiveMode } from './inline/live-mode';
 import { blocksOf, patchChildren } from './patch';
 import { ScrollSync } from './scroll-sync';
 import { DocumentSearch } from './search';
@@ -74,6 +75,10 @@ let folder: HandleSource | null = null;
 /** False on pages with no document to edit, such as the folder chooser. */
 let documentOpen = false;
 
+/** Reading, editing blocks in place, or the editor beside the preview. */
+type Mode = 'read' | 'live' | 'split';
+let mode: Mode = 'read';
+
 const toc = new TableOfContents(byId('mdt-toc-list'), preview, article);
 const search = new DocumentSearch(article, preview);
 const focus = new FocusMode(preview, article);
@@ -82,6 +87,19 @@ const panel = new SettingsPanel(settingsAside, {
   set: updateSetting,
   reset: resetAppearance,
 }, () => toggleSettings(false));
+
+const live = new LiveMode({
+  article,
+  getText: () => text,
+  setText: (next) => {
+    text = next;
+    updateDirty();
+    if (isScratchpad) saveDraft(next);
+  },
+  render: () => renderDocument(),
+  placeholder: () => t('live.placeholder'),
+  loadEditor: () => import('./editor'),
+});
 
 const isDirty = (): boolean => !isScratchpad && text !== savedText;
 
@@ -123,6 +141,8 @@ function createDocumentRenderer(): Renderer {
 }
 
 function renderDocument(): void {
+  // A block open for editing is part of the page, not of the rendered document.
+  live.close();
   const rendered = renderer(text);
   const fragment = sanitizeToFragment(rendered.html, source);
   if (source) resolveRelativeUrls(fragment, source);
@@ -134,6 +154,7 @@ function renderDocument(): void {
     : blocksOf(fragment);
   enhanceBlocks(patchChildren(article, blocks));
   if (folder) void loadFolderImages(article, folder);
+  if (mode === 'live') live.enableTaskBoxes(true);
 
   const severalChapters = rendered.headings.filter((heading) => heading.level === 1).length > 1;
   const numberFrom = severalChapters ? 1 : 2;
@@ -268,15 +289,20 @@ const saveDraft = debounce((draft: string) => {
   void chrome.storage.local.set({ [DRAFT_KEY]: draft });
 }, 400);
 
-async function setEditing(editing: boolean): Promise<void> {
-  if (editing && !documentOpen) return;
-  root.dataset.mode = editing ? 'split' : 'read';
-  byId('mdt-mode-read').setAttribute('aria-pressed', String(!editing));
-  byId('mdt-mode-edit').setAttribute('aria-pressed', String(editing));
-  editorPane.hidden = !editing;
-  splitHandle.hidden = !editing;
-  saveButton.hidden = !editing;
-  if (!editing) return;
+const MODE_BUTTONS: [string, Mode][] = [['mdt-mode-read', 'read'], ['mdt-mode-live', 'live'], ['mdt-mode-edit', 'split']];
+
+async function setMode(next: Mode): Promise<void> {
+  if (next !== 'read' && !documentOpen) return;
+  if (mode === 'live' && next !== 'live') live.commit();
+  mode = next;
+  root.dataset.mode = next;
+  for (const [id, buttonMode] of MODE_BUTTONS) byId(id).setAttribute('aria-pressed', String(buttonMode === next));
+  const split = next === 'split';
+  editorPane.hidden = !split;
+  splitHandle.hidden = !split;
+  saveButton.hidden = next === 'read';
+  live.enableTaskBoxes(next === 'live');
+  if (!split) return;
 
   if (!editor) {
     const { createEditor } = await import('./editor');
@@ -290,11 +316,13 @@ async function setEditing(editing: boolean): Promise<void> {
       if (!editorPane.hidden) scrollSync?.fromPreview();
     }), { passive: true });
   }
+  // Edits made in place since the editor was last open have to reach it.
+  if (editor.text !== text) editor.setText(text);
   editor.focus();
 }
 
-function toggleEditing(): void {
-  void setEditing(root.dataset.mode !== 'split');
+function toggleMode(target: Mode): void {
+  void setMode(mode === target ? 'read' : target);
 }
 
 async function save(): Promise<void> {
@@ -496,6 +524,8 @@ function onDocumentClick(event: MouseEvent): void {
     return;
   }
 
+  if (mode === 'live' && event.type === 'click' && live.handleClick(event)) return;
+
   const anchor = target.closest('a');
   const href = anchor?.getAttribute('href');
   if (!anchor || !href) return;
@@ -534,6 +564,11 @@ function onDocumentClick(event: MouseEvent): void {
 article.addEventListener('click', onDocumentClick);
 article.addEventListener('auxclick', onDocumentClick);
 
+// The page around the document: clicking below the last block starts a new one.
+preview.addEventListener('click', (event) => {
+  if (mode === 'live' && event.target === preview) live.handleBackgroundClick(event);
+});
+
 byId('mdt-toc-list').addEventListener('click', (event) => {
   const anchor = (event.target as Element).closest('a');
   if (anchor) followInPageLink(anchor, event);
@@ -548,7 +583,8 @@ window.addEventListener('popstate', () => {
 
 const SHORTCUTS: Record<string, () => void> = {
   t: toggleToc,
-  e: toggleEditing,
+  e: () => toggleMode('split'),
+  l: () => toggleMode('live'),
   f: () => focus.toggle(),
   s: () => toggleSettings(),
   '/': () => search.open(),
@@ -559,7 +595,7 @@ document.addEventListener('keydown', (event) => {
   const command = event.ctrlKey || event.metaKey;
 
   // While reading, Ctrl+S keeps its normal meaning of saving the page.
-  if (command && event.key.toLowerCase() === 's' && root.dataset.mode === 'split') {
+  if (command && event.key.toLowerCase() === 's' && mode !== 'read') {
     event.preventDefault();
     void save();
     return;
@@ -632,7 +668,7 @@ async function openScratchpad(): Promise<void> {
   text = typeof draft === 'string' ? draft : '';
   documentOpen = true;
   renderDocument();
-  await setEditing(true);
+  await setMode('split');
 }
 
 /** Shows a freshly loaded document and starts watching it for changes. */
@@ -717,23 +753,28 @@ function showLocalFolder(fileUrl: string): void {
     // Start from the file's own folder.
   }
 
+  const moveTo = (url: string) => {
+    try {
+      sessionStorage.setItem(LISTING_ROOT_KEY, url);
+    } catch {
+      // Moving still works for this page.
+    }
+    build(url);
+  };
+
   const build = (url: string) => {
     const listing = new ListingSource(url, viewerBase);
     const parent = listing.parentUrl;
     new FilePanel(byId('mdt-files'), {
       source: listing,
       currentPath: listing.pathOf(fileUrl),
-      onOpenFolder: openFolderPage,
-      onUp: parent
-        ? () => {
-          try {
-            sessionStorage.setItem(LISTING_ROOT_KEY, parent);
-          } catch {
-            // Moving up still works for this page.
-          }
-          build(parent);
-        }
-        : undefined,
+      viewerBase,
+      onUp: parent ? () => moveTo(parent) : undefined,
+      parents: listing.parents().map((folderAbove) => ({
+        name: folderAbove.name,
+        title: folderAbove.title,
+        select: () => moveTo(folderAbove.url),
+      })),
     });
   };
 
@@ -758,7 +799,7 @@ async function openWorkspace(id: string): Promise<void> {
     if (currentPath) history.replaceState(null, '', workspace.href(currentPath, { hash: location.hash }));
   }
 
-  new FilePanel(byId('mdt-files'), { source: workspace, currentPath, onOpenFolder: openFolderPage });
+  new FilePanel(byId('mdt-files'), { source: workspace, currentPath, viewerBase, workspaceId: record.id });
   enableFilesTab('files');
 
   if (!currentPath) {
@@ -787,8 +828,9 @@ async function showFolderChooser(): Promise<void> {
 
 function bindToolbar(): void {
   byId('mdt-btn-toc').addEventListener('click', toggleToc);
-  byId('mdt-mode-read').addEventListener('click', () => void setEditing(false));
-  byId('mdt-mode-edit').addEventListener('click', () => void setEditing(true));
+  for (const [id, buttonMode] of MODE_BUTTONS) {
+    byId(id).addEventListener('click', () => void setMode(buttonMode));
+  }
   saveButton.addEventListener('click', () => void save());
   byId('mdt-btn-search').addEventListener('click', () => search.open());
   byId('mdt-btn-focus').addEventListener('click', () => focus.toggle());

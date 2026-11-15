@@ -76,6 +76,97 @@ const insertLink: Command = (view) => {
   return true;
 };
 
+const blockTheme = EditorView.theme({
+  '&': { color: 'var(--fg)', backgroundColor: 'transparent', fontSize: 'inherit' },
+  '&.cm-focused': { outline: 'none' },
+  '.cm-scroller': { fontFamily: 'var(--font-body)', lineHeight: 'var(--line-height)', overflow: 'visible' },
+  '.cm-content': { caretColor: 'var(--fg)', padding: '0' },
+  '.cm-line': { padding: '0' },
+  '.cm-cursor': { borderLeftColor: 'var(--fg)' },
+  '&.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground, .cm-selectionBackground': {
+    backgroundColor: 'var(--selection)',
+  },
+  '.cm-placeholder': { color: 'var(--fg-muted)' },
+});
+
+/** In the block editor prose uses the document's font, so only code switches to monospace. */
+const monospace = HighlightStyle.define([
+  { tag: tags.monospace, fontFamily: 'var(--font-code)', fontSize: 'var(--code-size)' },
+]);
+
+export interface BlockEditorCallbacks {
+  placeholder: string;
+  onChange(text: string): void;
+  /** Leaves the block: upwards, downwards, or just closes it. */
+  onLeave(direction: 'up' | 'down' | null): void;
+}
+
+export interface BlockEditor {
+  readonly text: string;
+  /** Places the cursor on a zero-based line, at its end, or at the start or end of the block. */
+  focus(position: 'start' | 'end' | number): void;
+  destroy(): void;
+}
+
+/** A small editor for one block of the document, shown in place of the rendered block. */
+export function createBlockEditor(parent: HTMLElement, text: string, callbacks: BlockEditorCallbacks): BlockEditor {
+  const leaveAtEdge = (direction: 'up' | 'down'): Command => (view) => {
+    const { head, empty } = view.state.selection.main;
+    if (!empty) return false;
+    const line = view.state.doc.lineAt(head);
+    const atEdge = direction === 'up' ? line.number === 1 : line.number === view.state.doc.lines;
+    if (!atEdge) return false;
+    callbacks.onLeave(direction);
+    return true;
+  };
+
+  const extensions: Extension[] = [
+    history(),
+    drawSelection(),
+    EditorView.lineWrapping,
+    markdown(),
+    syntaxHighlighting(highlighting),
+    syntaxHighlighting(monospace),
+    blockTheme,
+    placeholder(callbacks.placeholder),
+    keymap.of([
+      { key: 'Escape', run: () => { callbacks.onLeave(null); return true; } },
+      { key: 'Mod-Enter', run: () => { callbacks.onLeave(null); return true; } },
+      { key: 'ArrowUp', run: leaveAtEdge('up') },
+      { key: 'ArrowDown', run: leaveAtEdge('down') },
+      { key: 'Mod-b', run: toggleWrap('**') },
+      { key: 'Mod-i', run: toggleWrap('*') },
+      { key: 'Mod-k', run: insertLink },
+      indentWithTab,
+      ...defaultKeymap,
+      ...historyKeymap,
+    ]),
+    EditorView.updateListener.of((update) => {
+      if (update.docChanged) callbacks.onChange(update.state.doc.toString());
+    }),
+  ];
+
+  const view = new EditorView({ parent, state: EditorState.create({ doc: text, extensions }) });
+
+  return {
+    get text() {
+      return view.state.doc.toString();
+    },
+    focus(position) {
+      const doc = view.state.doc;
+      let anchor: number;
+      if (position === 'start') anchor = 0;
+      else if (position === 'end') anchor = doc.length;
+      else anchor = doc.line(Math.min(Math.max(position + 1, 1), doc.lines)).to;
+      view.dispatch({ selection: { anchor } });
+      view.focus();
+    },
+    destroy() {
+      view.destroy();
+    },
+  };
+}
+
 export interface EditorCallbacks {
   placeholder: string;
   onChange(text: string): void;

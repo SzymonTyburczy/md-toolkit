@@ -1,15 +1,27 @@
 import { debounce, h, icon } from '../../shared/dom';
 import { t } from '../../shared/i18n';
+import { chooseFolder, workspaceUrl } from './landing';
 import { ancestorsOf, baseName, parentPath, type FolderEntry } from './paths';
 import { searchFolder, type FileResult } from './search';
 import type { FolderSource } from './sources';
+import { listWorkspaces } from './store';
+
+export interface FolderJump {
+  name: string;
+  title: string;
+  select(): void;
+}
 
 export interface FilePanelOptions {
   source: FolderSource;
   currentPath: string | null;
+  viewerBase: string;
+  /** The opened folder this panel shows, left out of the list of folders to switch to. */
+  workspaceId?: string;
   /** Present when the folder can move up a level, i.e. folders reached through file://. */
   onUp?: () => void;
-  onOpenFolder: () => void;
+  /** Folders above this one, nearest first, for jumping several levels at once. */
+  parents?: FolderJump[];
 }
 
 interface TreeState {
@@ -50,12 +62,11 @@ export class FilePanel {
     this.expanded = new Set([...state.expanded, ...ancestorsOf(options.currentPath ?? '')]);
 
     const bar = h('div', { class: 'mdt-files-bar' },
-      h('span', { class: 'mdt-files-root', title: options.source.title }, icon('folder'), h('span', {}, options.source.name)),
+      this.folderMenu(),
       options.onUp
         ? h('button', { class: 'mdt-icon-btn', type: 'button', title: t('files.up'), 'aria-label': t('files.up'), onClick: options.onUp }, icon('arrow-up'))
         : null,
       h('button', { class: 'mdt-icon-btn', type: 'button', title: t('files.refresh'), 'aria-label': t('files.refresh'), onClick: () => void this.refresh() }, icon('refresh')),
-      h('button', { class: 'mdt-icon-btn', type: 'button', title: t('files.openFolder'), 'aria-label': t('files.openFolder'), onClick: options.onOpenFolder }, icon('folder-open')),
     );
 
     this.input.addEventListener('input', debounce(() => void this.search(), 250));
@@ -75,6 +86,72 @@ export class FilePanel {
   focusSearch(): void {
     this.input.focus();
     this.input.select();
+  }
+
+  /** The folder name doubles as a menu for moving to another folder. */
+  private folderMenu(): HTMLElement {
+    const menu = h('div', { class: 'mdt-menu mdt-files-menu', role: 'menu', hidden: true });
+    const button = h('button', {
+      class: 'mdt-files-root',
+      type: 'button',
+      title: `${this.options.source.title}\n${t('files.switch')}`,
+      'aria-haspopup': 'menu',
+      'aria-expanded': 'false',
+    }, icon('folder'), h('span', {}, this.options.source.name), icon('chevron-down'));
+
+    const close = () => {
+      menu.hidden = true;
+      button.setAttribute('aria-expanded', 'false');
+    };
+
+    button.addEventListener('click', async (event) => {
+      event.stopPropagation();
+      if (!menu.hidden) {
+        close();
+        return;
+      }
+      await this.fillMenu(menu);
+      menu.hidden = false;
+      button.setAttribute('aria-expanded', 'true');
+    });
+    menu.addEventListener('click', (event) => event.stopPropagation());
+    document.addEventListener('click', close);
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') close();
+    });
+
+    return h('div', { class: 'mdt-files-switch' }, button, menu);
+  }
+
+  private async fillMenu(menu: HTMLElement): Promise<void> {
+    const items: HTMLElement[] = [];
+    const heading = (key: Parameters<typeof t>[0]) => h('p', { class: 'mdt-menu-heading' }, t(key));
+
+    const parents = this.options.parents ?? [];
+    if (parents.length > 0) {
+      items.push(heading('files.parents'));
+      for (const parent of parents) {
+        items.push(h('button', { type: 'button', role: 'menuitem', title: parent.title, onClick: () => parent.select() },
+          icon('folder'), h('span', {}, parent.name)));
+      }
+    }
+
+    const recent = (await listWorkspaces().catch(() => [])).filter((record) => record.id !== this.options.workspaceId);
+    if (recent.length > 0) {
+      items.push(heading('folder.recent'));
+      for (const record of recent) {
+        items.push(h('a', { href: workspaceUrl(this.options.viewerBase, record.id), role: 'menuitem' },
+          icon('folder'), h('span', {}, record.name)));
+      }
+    }
+
+    if (items.length > 0) items.push(h('hr'));
+    items.push(h('button', {
+      type: 'button',
+      role: 'menuitem',
+      onClick: () => void chooseFolder(this.options.viewerBase),
+    }, icon('folder-open'), h('span', {}, t('folder.choose'))));
+    menu.replaceChildren(...items);
   }
 
   async refresh(): Promise<void> {

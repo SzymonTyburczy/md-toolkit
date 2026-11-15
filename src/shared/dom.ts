@@ -1,12 +1,14 @@
 import {
-  ArrowUp, BookOpen, Check, ChevronDown, ChevronRight, ChevronsUpDown, ChevronUp, ClipboardCopy, Code, Copy,
+  ArrowUp, BookOpen, Check, ChevronDown, ChevronRight, ChevronsUpDown, ChevronUp, ClipboardCopy, Code, Columns2, Copy,
   createElement, Download, ExternalLink, FileCode, FilePlus, FileText, Focus, Folder, FolderOpen, Keyboard,
-  Link, ListTree, PanelLeft, Printer, RefreshCw, RotateCcw, Save, Search, Settings, SlidersHorizontal,
+  Link, ListTree, PanelLeft, Pencil, Printer, RefreshCw, RotateCcw, Save, Search, Settings, SlidersHorizontal,
   SquarePen, X,
   type IconNode,
 } from 'lucide';
 
 const ICONS: Record<string, IconNode> = {
+  columns: Columns2,
+  pencil: Pencil,
   'arrow-up': ArrowUp,
   folder: Folder,
   'folder-open': FolderOpen,

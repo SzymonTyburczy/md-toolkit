@@ -21,7 +21,8 @@ Przeglądarka i edytor Markdown dla Google Chrome zbudowane wokół jednej idei:
 - Otwórz folder i przeglądaj wszystkie jego pliki Markdown w drzewie plików
 - Linki między plikami i względne obrazki po prostu działają
 - Przeszukuj nazwy i treść wszystkich plików naraz, a potem przejdź prosto do trafienia
-- Zmiany zapisują się prosto do pliku, a ostatnie foldery są o jedno kliknięcie
+- Zmiany zapisują się prosto do pliku
+- Menu pod nazwą folderu przełącza na ostatni folder, przeskakuje do folderu nadrzędnego albo otwiera nowy
 - Po otwarciu pojedynczego pliku lokalnego widać też pliki wokół niego i można przejść poziom wyżej
 
 **Decyduj o wyglądzie**
@@ -40,7 +41,8 @@ Przeglądarka i edytor Markdown dla Google Chrome zbudowane wokół jednej idei:
 
 **Narzędzia**
 - Spis treści śledzący aktualną sekcję, ze zwijaniem poziomów
-- Edytor z podglądem na żywo, synchronizacją przewijania i zapisem na dysk
+- Dwa sposoby edycji: kliknij dowolny blok i zmieniaj jego Markdown wprost w wyrenderowanym dokumencie albo użyj edytora obok podglądu z synchronizacją przewijania
+- Zapis na dysk i odhaczanie zadań podczas edycji
 - Automatyczne odświeżanie, które zachowuje pozycję i nigdy nie nadpisuje niezapisanych zmian
 - Wyszukiwarka z licznikiem trafień, postęp czytania, liczba słów i czas czytania
 - Tryb skupienia przyciemniający wszystko poza bieżącym blokiem
@@ -56,7 +58,9 @@ Interfejs jest dostępny po polsku i angielsku.
 | --- | --- |
 | ![Panel ustawień wyglądu](docs/screenshots/appearance-panel.png) | ![Diagramy Mermaid w motywie Nord](docs/screenshots/theme-nord-diagrams.png) |
 
-![Przeglądanie folderu w zakładce Pliki](docs/screenshots/folder.png)
+| Przeglądanie folderu | Edycja bloku w tekście |
+| --- | --- |
+| ![Przeglądanie folderu w zakładce Pliki](docs/screenshots/folder.png) | ![Jeden akapit otwarty do edycji w wyrenderowanym dokumencie](docs/screenshots/live-editing.png) |
 
 ## Instalacja
 
@@ -72,7 +76,8 @@ MD Toolkit nie jest jeszcze w Chrome Web Store, więc instaluje się go jako roz
 | Klawisz | Działanie |
 | --- | --- |
 | <kbd>T</kbd> | Pokaż lub ukryj panel boczny z plikami i spisem treści |
-| <kbd>E</kbd> | Przełącz czytanie i edycję |
+| <kbd>L</kbd> | Edycja w tekście: kliknij dowolny blok, aby go zmienić |
+| <kbd>E</kbd> | Edytor obok podglądu |
 | <kbd>/</kbd> | Szukaj w dokumencie |
 | <kbd>F</kbd> | Tryb skupienia |
 | <kbd>S</kbd> | Pokaż lub ukryj ustawienia wyglądu |
@@ -82,6 +87,14 @@ MD Toolkit nie jest jeszcze w Chrome Web Store, więc instaluje się go jako roz
 
 Dopisz `#mdt-raw` do adresu, aby zobaczyć oryginalny plik zamiast podglądu.
 
+### Edycja
+
+Pasek narzędzi przełącza trzy tryby:
+
+- **Czytaj** pokazuje dokument.
+- **Na żywo** pozwala edytować wewnątrz wyrenderowanego dokumentu. Kliknij akapit, listę, tabelę, wzór albo diagram, a tylko ten blok zamieni się w swój Markdown, podczas gdy wszystko wokół zostaje wyrenderowane. <kbd>Esc</kbd> albo kliknięcie obok pokazuje efekt, a strzałki przechodzą do bloku powyżej lub poniżej. Kliknięcie pod ostatnim blokiem dodaje nowy, a zadania odhaczasz bezpośrednio. <kbd>Ctrl</kbd>+kliknięcie nadal otwiera linki.
+- **Podział** pokazuje pełny edytor obok podglądu z synchronizacją przewijania.
+
 ### Foldery
 
 Kliknij ikonę wtyczki, wybierz **Otwórz folder** i wskaż folder. Zakładka **Pliki** po lewej pokazuje jego pliki Markdown i podfoldery, a pole wyszukiwania przeszukuje nazwy i treść. Ukryte foldery, takie jak `.git`, oraz `node_modules` są pomijane. Wyszukiwanie obejmuje do 2000 plików.
@@ -89,6 +102,8 @@ Kliknij ikonę wtyczki, wybierz **Otwórz folder** i wskaż folder. Zakładka **
 Chrome pyta o zgodę, zanim wtyczka odczyta folder, i jeszcze raz przy pierwszym zapisie, zanim zmieni pliki. Po ponownym uruchomieniu przeglądarki pyta znowu, chyba że zezwolisz na dostęp przy każdej wizycie.
 
 Po otwarciu pojedynczego pliku lokalnego zakładka **Pliki** pokazuje folder, w którym leży. Przycisk ze strzałką przechodzi poziom wyżej.
+
+Kliknij nazwę folderu nad drzewem, aby przejść gdzie indziej: do dowolnego folderu nadrzędnego, do ostatnio otwartego folderu albo do nowego przez **Wybierz folder…**.
 
 ### Zapisywanie plików
 

@@ -4,24 +4,27 @@
  * and reset anything the reader had open, such as a <details> block.
  */
 
-const LINE_ATTRIBUTE = 'data-line';
+const LINE_ATTRIBUTES = ['data-line', 'data-line-end'];
 
 /** Pristine HTML of each block, because enhancements mutate the live DOM afterwards. */
 const blockKeys = new WeakMap<Element, string>();
 
 /** Source lines shift with every edit above a block, so they are not part of its identity. */
 function keyOf(element: Element): string {
-  const line = element.getAttribute(LINE_ATTRIBUTE);
-  if (line === null) return element.outerHTML;
-  element.removeAttribute(LINE_ATTRIBUTE);
+  const saved = LINE_ATTRIBUTES.map((name) => [name, element.getAttribute(name)] as const);
+  if (saved.every(([, value]) => value === null)) return element.outerHTML;
+  for (const [name] of saved) element.removeAttribute(name);
   const key = element.outerHTML;
-  element.setAttribute(LINE_ATTRIBUTE, line);
+  for (const [name, value] of saved) if (value !== null) element.setAttribute(name, value);
   return key;
 }
 
 function copyLine(from: Element, to: Element): void {
-  const line = from.getAttribute(LINE_ATTRIBUTE);
-  if (line !== null) to.setAttribute(LINE_ATTRIBUTE, line);
+  for (const name of LINE_ATTRIBUTES) {
+    const value = from.getAttribute(name);
+    if (value === null) to.removeAttribute(name);
+    else to.setAttribute(name, value);
+  }
 }
 
 /** Returns the top-level blocks of a fragment, wrapping loose text so nothing is lost. */

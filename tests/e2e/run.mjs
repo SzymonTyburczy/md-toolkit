@@ -438,7 +438,7 @@ await test('copying and print styles work', async () => {
 
 await test('the interface switches between English and Polish', async () => {
   await setSettings(demo, { language: 'pl' });
-  await until(() => demo.$eval('#mdt-mode-edit span', (element) => element.textContent === 'Edytuj'), 'Polish label');
+  await until(() => demo.$eval('#mdt-mode-live span', (element) => element.textContent === 'Na żywo'), 'Polish label');
   const alert = await demo.$eval('.mdt-alert-warning .mdt-alert-title', (element) => element.textContent);
   equal(alert, 'Ostrzeżenie', 'translated callout');
   const words = await demo.$eval('#mdt-status-words', (element) => element.textContent);
@@ -679,6 +679,117 @@ await test('editor and preview scroll together', async () => {
   await page.$eval('.cm-scroller', (element) => { element.scrollTop = 6000; });
   await until(() => page.$eval('#mdt-preview', (element) => element.scrollTop > 1000), 'preview follows editor');
   await page.close();
+});
+
+/* ------------------------------- live mode ------------------------------- */
+
+const LIVE_SOURCE = [
+  '# Live title', '', 'First paragraph.', '', 'Second paragraph.', '',
+  '- [ ] task one', '- [ ] task two', '', '```mermaid', 'graph TD; A-->B', '```', '',
+].join('\n');
+
+async function stubSavePicker(page) {
+  await page.evaluate(() => {
+    window.__saved = [];
+    const handle = {
+      createWritable: async () => ({ write: async (value) => { window.__saved.push(value); }, close: async () => {} }),
+      getFile: async () => ({ text: async () => window.__saved.at(-1) }),
+    };
+    window.showSaveFilePicker = async () => handle;
+  });
+}
+
+async function saveAndRead(page) {
+  const count = await page.evaluate(() => window.__saved.length);
+  await page.keyboard.down('Control');
+  await page.keyboard.press('s');
+  await page.keyboard.up('Control');
+  return until(() => page.evaluate((before) => (window.__saved.length > before ? window.__saved.at(-1) : null), count), 'saved text');
+}
+
+// The placeholder is drawn inside an empty editor, so it is not part of the text.
+const editorText = (page) => page.$eval('.mdt-block-editor .cm-content', (element) =>
+  (element.querySelector('.cm-placeholder') ? '' : element.innerText.replace(/\n$/, '')));
+
+async function clickBlock(page, selector, text) {
+  await page.evaluate((query, content) => {
+    [...document.querySelectorAll(query)].find((element) => element.textContent.trim() === content).click();
+  }, selector, text);
+  await until(() => page.$('.mdt-block-editor .cm-editor'), `editor for ${text}`);
+}
+
+let livePage;
+
+await test('live mode edits one block in place and leaves the rest of the file alone', async () => {
+  writeFileSync(watched.path, LIVE_SOURCE);
+  livePage = await openViewer(watched.url);
+  await stubSavePicker(livePage);
+  await livePage.keyboard.press('l');
+  await until(() => livePage.$eval('html', (element) => element.dataset.mode === 'live'), 'live mode');
+  const title = await livePage.$('#mdt-document > h1');
+
+  await clickBlock(livePage, '#mdt-document > p', 'Second paragraph.');
+  equal(await editorText(livePage), 'Second paragraph.', 'editor holds the source of the block');
+  await shot(livePage, 'live-editing');
+  await livePage.keyboard.press('End');
+  await livePage.keyboard.type(' **Edited**');
+  await livePage.keyboard.press('Escape');
+
+  await until(() => livePage.$eval('#mdt-document', (element) => !element.querySelector('.mdt-block-editor')), 'editor closed');
+  equal(await livePage.$eval('#mdt-document strong', (element) => element.textContent), 'Edited', 'block rendered again');
+  equal(await livePage.evaluate((heading) => heading.isConnected, title), true, 'untouched blocks stay as they were');
+  equal(await livePage.$eval('#mdt-dirty', (element) => element.hidden), false, 'marked unsaved');
+
+  const saved = await saveAndRead(livePage);
+  equal(saved, LIVE_SOURCE.replace('Second paragraph.', 'Second paragraph. **Edited**'), 'saved file');
+});
+
+await test('arrow keys move between blocks while editing in place', async () => {
+  await clickBlock(livePage, '#mdt-document > p', 'First paragraph.');
+  await livePage.keyboard.press('ArrowDown');
+  await until(async () => (await editorText(livePage)).startsWith('Second paragraph.'), 'next block');
+  await livePage.keyboard.press('ArrowUp');
+  await until(async () => (await editorText(livePage)) === 'First paragraph.', 'previous block');
+  await livePage.keyboard.press('Escape');
+});
+
+await test('task boxes can be ticked while editing in place', async () => {
+  await livePage.evaluate(() => document.querySelectorAll('#mdt-document input.mdt-task')[1].click());
+  await until(() => livePage.$$eval('#mdt-document input.mdt-task', (boxes) => boxes.map((box) => box.checked).join() === 'false,true'), 'second task ticked');
+  const saved = await saveAndRead(livePage);
+  assert(saved.includes('- [ ] task one\n- [x] task two'), `saved: ${saved}`);
+});
+
+await test('diagrams open as their source and draw again afterwards', async () => {
+  await until(() => livePage.$('.mdt-mermaid svg'), 'diagram', 15000);
+  await livePage.evaluate(() => document.querySelector('.mdt-mermaid svg').dispatchEvent(new MouseEvent('click', { bubbles: true })));
+  await until(() => livePage.$('.mdt-block-editor .cm-editor'), 'diagram editor');
+  assert((await editorText(livePage)).startsWith('```mermaid'), 'diagram source');
+  await livePage.keyboard.press('Escape');
+  await until(() => livePage.$('.mdt-mermaid svg'), 'diagram drawn again', 15000);
+});
+
+await test('clicking below the document starts a new block', async () => {
+  const point = await livePage.$eval('#mdt-document', (element) => {
+    const bounds = element.getBoundingClientRect();
+    return { x: bounds.left + bounds.width / 2, y: bounds.bottom - 30 };
+  });
+  await livePage.mouse.click(point.x, point.y);
+  await until(() => livePage.$('.mdt-block-editor .cm-editor'), 'new block editor');
+  equal(await editorText(livePage), '', 'new block is empty');
+  await livePage.keyboard.type('Appended at the end.');
+  await livePage.keyboard.press('Escape');
+  await until(() => livePage.$eval('#mdt-document > p:last-of-type', (element) => element.textContent === 'Appended at the end.'), 'new paragraph');
+  const saved = await saveAndRead(livePage);
+  assert(saved.endsWith('```\n\nAppended at the end.\n'), `saved ending: ${JSON.stringify(saved.slice(-40))}`);
+});
+
+await test('edits made in place reach the split editor', async () => {
+  await livePage.keyboard.press('e');
+  await until(() => livePage.$('#mdt-editor-pane .cm-editor'), 'split editor');
+  const source = await livePage.$eval('#mdt-editor-pane .cm-content', (element) => element.innerText);
+  assert(source.includes('Appended at the end.') && source.includes('**Edited**'), `split editor: ${source.slice(0, 120)}`);
+  await livePage.close();
 });
 
 await test('a new document opens the editor and keeps its draft', async () => {
@@ -932,11 +1043,55 @@ await test('a local file shows the files around it, and you can move between the
 
   // Now listing sub/, so moving up should show the whole fixture folder again.
   await until(() => page.$eval('.mdt-files-root', (element) => element.textContent === 'sub'), 'folder of the file');
-  await page.click('.mdt-files-bar button');
+  await page.click('.mdt-files-bar button[title="Parent folder"]');
   await until(() => page.$('.mdt-files-tree a.mdt-file-current[title="sub/other.md"]'), 'parent folder with the file still marked');
 
   await page.type('.mdt-files-search', 'Arrived');
   await until(() => page.$$eval('.mdt-result', (results) => results.some((result) => result.textContent.includes('other.md'))), 'search on disk');
+
+  // The folder name opens a menu that jumps several levels up at once.
+  await page.click('.mdt-files-root');
+  await until(() => page.$eval('.mdt-files-menu', (menu) => !menu.hidden), 'folder menu');
+  const parents = await page.$$eval('.mdt-files-menu button[role="menuitem"]', (items) => items.map((item) => item.textContent));
+  assert(parents.length >= 2, `parent folders: ${parents}`);
+  const target = parents[0];
+  await page.evaluate(() => document.querySelector('.mdt-files-menu button[role="menuitem"]').click());
+  await until(() => page.$eval('.mdt-files-root span', (element, name) => element.textContent === name, target), 'moved to the parent folder');
+  await page.close();
+});
+
+await test('the folder menu switches between opened folders', async () => {
+  const page = await open(`${extensionUrl('viewer.html')}?folder`);
+  await ready(page);
+  await makeFolder(page);
+  await Promise.all([page.waitForNavigation({ waitUntil: 'load' }), page.click('.mdt-landing .mdt-primary')]);
+  await ready(page);
+  await page.evaluate(async () => {
+    const root = await navigator.storage.getDirectory();
+    await root.removeEntry('second', { recursive: true }).catch(() => {});
+    const second = await root.getDirectoryHandle('second', { create: true });
+    const writable = await (await second.getFileHandle('README.md', { create: true })).createWritable();
+    await writable.write('# Second folder\n');
+    await writable.close();
+    window.showDirectoryPicker = async () => second;
+  });
+
+  await page.click('.mdt-files-root');
+  await until(() => page.$eval('.mdt-files-menu', (menu) => !menu.hidden), 'folder menu');
+  equal(await page.$$eval('.mdt-files-menu a', (links) => links.length), 0, 'the open folder listed as somewhere to go');
+  await Promise.all([
+    page.waitForNavigation({ waitUntil: 'load' }),
+    page.evaluate(() => [...document.querySelectorAll('.mdt-files-menu button')].at(-1).click()),
+  ]);
+  await ready(page);
+  equal(await page.$eval('#mdt-document h1', (heading) => heading.textContent), 'Second folder', 'chosen from the menu');
+
+  await page.click('.mdt-files-root');
+  await until(() => page.$eval('.mdt-files-menu', (menu) => !menu.hidden), 'folder menu');
+  equal(JSON.stringify(await page.$$eval('.mdt-files-menu a', (links) => links.map((link) => link.textContent))), '["notes"]', 'recent folders');
+  await Promise.all([page.waitForNavigation({ waitUntil: 'load' }), page.click('.mdt-files-menu a')]);
+  await ready(page);
+  equal(await page.$eval('#mdt-document h1', (heading) => heading.textContent), 'Notes home', 'switched back');
   await page.close();
 });
 

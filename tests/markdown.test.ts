@@ -52,7 +52,8 @@ describe('front matter', () => {
 
   it('keeps source lines aligned with the original file', () => {
     const { html } = render('---\ntitle: x\n---\n\n# Heading\n');
-    expect(html).toContain('<h1 id="heading" data-line="4">');
+    expect(html).toContain('<details class="mdt-front-matter" data-line="0" data-line-end="3">');
+    expect(html).toContain('<h1 id="heading" data-line="4" data-line-end="5">');
   });
 });
 
@@ -76,7 +77,7 @@ describe('math', () => {
   it('renders inline and block placeholders', () => {
     const { html } = render('Euler: $e^{i\\pi}$\n\n$$\nx^2\n$$\n');
     expect(html).toContain('<span class="mdt-math">e^{i\\pi}</span>');
-    expect(html).toContain('<div class="mdt-math" data-display="true" data-line="2">x^2</div>');
+    expect(html).toContain('<div class="mdt-math" data-display="true" data-line="2" data-line-end="5">x^2</div>');
   });
 
   it('leaves prices alone', () => {
@@ -197,9 +198,9 @@ describe('other syntax', () => {
 
   it('tags only top-level blocks with source lines', () => {
     const { html } = render('para\n\n- item\n\n  nested para\n');
-    expect(html).toContain('<p data-line="0">');
-    expect(html).toContain('<ul data-line="2">');
-    expect(html.match(/data-line/g)).toHaveLength(2);
+    expect(html).toContain('<p data-line="0" data-line-end="1">');
+    expect(html).toContain('<ul data-line="2" data-line-end="5">');
+    expect(html.match(/data-line="/g)).toHaveLength(2);
   });
 
   it('renders front matter collapsed', () => {

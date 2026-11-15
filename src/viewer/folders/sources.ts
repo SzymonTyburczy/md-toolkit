@@ -136,6 +136,16 @@ export class ListingSource implements FolderSource {
     return parent === this.rootUrl ? null : parent;
   }
 
+  /** Every folder above this one, nearest first, up to the top of the drive. */
+  parents(): { url: string; name: string; title: string }[] {
+    const result: { url: string; name: string; title: string }[] = [];
+    for (let url = this.parentUrl; url; url = new ListingSource(url, this.viewerBase).parentUrl) {
+      const parent = new ListingSource(url, this.viewerBase);
+      result.push({ url, name: parent.name, title: parent.title });
+    }
+    return result;
+  }
+
   fileUrl(path: string): string {
     return new URL(encodePath(path), this.rootUrl).href;
   }

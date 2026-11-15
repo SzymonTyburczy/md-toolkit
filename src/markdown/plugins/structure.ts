@@ -38,18 +38,35 @@ export function headingsPlugin(md: MarkdownIt): void {
 }
 
 /**
- * Tags top-level blocks with their source line. Editor scroll sync reads these,
- * and only top-level blocks need them, which keeps preview diffing simple.
+ * Tags top-level blocks with the source lines they came from: data-line is the
+ * first line, data-line-end the line after the last. Scroll sync and editing a
+ * single block in place both read these. Only top-level blocks need them, which
+ * keeps preview diffing simple.
  */
 export function sourceLinesPlugin(md: MarkdownIt): void {
   md.core.ruler.push('mdt_source_lines', (state: StateCore) => {
     const { lineOffset } = state.env as RenderEnv;
+    const lines = state.src.split('\n');
     for (const token of state.tokens) {
       if (token.level === 0 && token.map && token.nesting >= 0 && token.type !== 'inline') {
-        token.attrSet('data-line', String(token.map[0] + lineOffset));
+        const [start] = token.map;
+        // Lists claim the blank line after them. Leaving it out keeps the gap to
+        // the next block safe when a block is edited and written back.
+        let end = token.map[1];
+        while (end > start + 1 && !lines[end - 1]?.trim()) end -= 1;
+        token.attrSet('data-line', String(start + lineOffset));
+        token.attrSet('data-line-end', String(end + lineOffset));
       }
     }
   });
+}
+
+/** The source line attributes for renderers that write their own opening tag. */
+export function sourceAttributes(token: Token): string {
+  const start = token.attrGet('data-line');
+  const end = token.attrGet('data-line-end');
+  if (start === null) return '';
+  return ` data-line="${start}"${end === null ? '' : ` data-line-end="${end}"`}`;
 }
 
 const TASK_MARKER = /^\[([ xX])\][ \t]+/;
